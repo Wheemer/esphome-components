@@ -28,10 +28,10 @@ sensor:
     name: "MQ ADC Voltage"
     unit_of_measurement: "V"
     accuracy_decimals: 3
-# ESP32
+# ESP32 номинал резисторов  делителя 3.1кОм и 1.9 кОм
     attenuation: auto  # ESPHome handles this
    # update_interval: 1s
-# ESP8266 Wemos d1
+# ESP8266 Wemos d1 номинал резисторов  делителя 3.3кОм и 1.7 кОм
     filters:
       - multiply: 3.3
       
