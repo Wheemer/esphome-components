@@ -28,8 +28,10 @@ sensor:
     name: "MQ ADC Voltage"
     unit_of_measurement: "V"
     accuracy_decimals: 3
-    #attenuation: auto  # ESPHome handles this
+# ESP32
+    attenuation: auto  # ESPHome handles this
    # update_interval: 1s
+# ESP8266 Wemos d1
     filters:
       - multiply: 3.3
       
