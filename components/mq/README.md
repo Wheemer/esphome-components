@@ -55,99 +55,69 @@ sensor:
       name: "Alcohol"
 ```
 
-Значения RS/R0 для чистого воздуха
-Модель	RS/R0 (чистый воздух)
-
-
-MQ2	    9.83
-
-MQ3	    60.0
-
-MQ4    	4.4
-
-MQ5    	6.5
-
-MQ6	    10.0
-
-MQ7	    27.5
-  
-MQ8	    70.0
-
-MQ9    	9.6
-
-MQ131  	15.0
-
-MQ135  	3.6
-
-MQ136   	3.6
-
-MQ303A	  1.0
-
-MQ309A	  11.0
-
 # Поддерживаемые датчики и газы
 
-# MQ-2 (Горючие газы и дым)
+# MQ-2 (Горючие газы и дым)  RS/R0  -> 9.83
 model: MQ2
 сенсоры:
  sensor_h2, sensor_lpg, sensor_co, sensor_alcohol, sensor_propane
  
-# MQ-3 (Алкоголь)
+# MQ-3 (Алкоголь)  RS/R0  -> 60.0
 model: MQ3
 Доступные сенсоры:
  sensor_lpg, sensor_ch4, sensor_co, sensor_alcohol, sensor_benzene, sensor_hexane
  
-# MQ-4 (Природный газ)
+# MQ-4 (Природный газ)  RS/R0  -> 	4.4
 model: MQ4
 Доступные сенсоры:
  sensor_lpg, sensor_ch4, sensor_co, sensor_alcohol, sensor_smoke
  
-# MQ-5 (Горючие газы)
+# MQ-5 (Горючие газы)  RS/R0  -> 6.5
 model: MQ5
 Доступные сенсоры:
  sensor_h2, sensor_lpg, sensor_ch4, sensor_co, sensor_alcohol
  
-# MQ-6 (Сжиженный газ)
+# MQ-6 (Сжиженный газ)  RS/R0  -> 10.0
 model: MQ6
  Доступные сенсоры:
  sensor_h2, sensor_lpg, sensor_ch4, sensor_co, sensor_alcohol
  
-# MQ-7 (Угарный газ)
+# MQ-7 (Угарный газ)   RS/R0  ->  27.5
 model: MQ7
 Доступные сенсоры:
  sensor_h2, sensor_lpg, sensor_ch4, sensor_co, sensor_alcohol
  
-# MQ-8 (Водород)
+# MQ-8 (Водород)   RS/R0  ->  70.0
 model: MQ8
 Доступные сенсоры:
  sensor_h2, sensor_lpg, sensor_ch4, sensor_co, sensor_alcohol
  
-# MQ-9 (Угарный газ и горючие газы)
+# MQ-9 (Угарный газ и горючие газы)   RS/R0  -> 9.6
 model: MQ9
 Доступные сенсоры:
  sensor_lpg, sensor_ch4, sensor_co
  
-# MQ-131 (Озон)
+# MQ-131 (Озон)   RS/R0  -> 	15.0
 model: MQ131
 Доступные сенсоры:
  sensor_nox, sensor_cl2, sensor_o3
  
-# MQ-135 (Качество воздуха)
+# MQ-135 (Качество воздуха)   RS/R0  ->  	3.6
 model: MQ135
 Доступные сенсоры:
  sensor_co, sensor_alcohol, sensor_co2, sensor_tolueno, sensor_nh4, sensor_acetona
  
-# MQ-136 (Сероводород)
+# MQ-136 (Сероводород)   RS/R0  ->  	3.6
 model: MQ136
 Доступные сенсоры:
  sensor_h2s, sensor_nh4, sensor_co
  
-# MQ-303A (Спирт)
+# MQ-303A (Спирт)   RS/R0  ->  1.0
 model: MQ303A
 Доступные сенсоры:
  sensor_iso_butano, sensor_hydrogen, sensor_ethanol
  
-# MQ-309A (Водород и угарный газ)
+# MQ-309A (Водород и угарный газ)   RS/R0  -> 11.0
 model: MQ309A
 Доступные сенсоры:
  sensor_h2, sensor_ch4, sensor_co, sensor_alcohol
