@@ -5,6 +5,7 @@ from esphome.const import (
     CONF_HUMIDITY,
     CONF_ID,
     CONF_TEMPERATURE,
+    CONF_UPDATE_INTERVAL,
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_TEMPERATURE,
     STATE_CLASS_MEASUREMENT,
@@ -16,7 +17,6 @@ DEPENDENCIES = ["i2c"]
 
 hts221_ns = cg.esphome_ns.namespace("hts221")
 hts221Component = hts221_ns.class_("hts221Component", cg.PollingComponent, i2c.I2CDevice)
-
 
 CONFIG_SCHEMA = (
     cv.Schema(
@@ -30,7 +30,7 @@ CONFIG_SCHEMA = (
             ),
             cv.Optional(CONF_HUMIDITY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_PERCENT,
-                accuracy_decimals=2,
+                accuracy_decimals=1,
                 device_class=DEVICE_CLASS_HUMIDITY,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
@@ -39,7 +39,6 @@ CONFIG_SCHEMA = (
     .extend(cv.polling_component_schema("60s"))
     .extend(i2c.i2c_device_schema(0x5F))
 )
-
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
