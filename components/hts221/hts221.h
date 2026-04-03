@@ -32,15 +32,17 @@ class hts221Component : public PollingComponent, public i2c::I2CDevice {
   bool read_calibration_();
   bool read_measurements_(float &temperature, float &humidity);
   bool is_data_ready_();
+  bool wait_for_data_ready_(int timeout_ms = 50);  // Max 50ms per datasheet
   void set_power_mode_(bool enable);
   
-  // Calibration values
+  // Calibration values (following datasheet Section 8)
   float humidity_slope_{0.0f};
   float humidity_zero_{0.0f};
   float temperature_slope_{0.0f};
   float temperature_zero_{0.0f};
   
   bool calibrated_{false};
+  uint8_t current_odr_{0};  // Track current output data rate
 };
 
 }  // namespace hts221
