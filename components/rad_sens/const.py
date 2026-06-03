@@ -1,3 +1,4 @@
+# Единицы измерения
 UNIT_MICROROENTGEN_PER_HOUR = "µR/h"
 UNIT_COUNT_PER_MINUTE = "count/min"
 
