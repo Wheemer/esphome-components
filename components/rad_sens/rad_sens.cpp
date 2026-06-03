@@ -10,7 +10,7 @@ static const char *const TAG = "rad_sens";
 void RadSensComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up RadSens...");
   
-  // Проверяем наличие устройства через чтение регистра
+  // Проверяем наличие устройства
   uint8_t test_read = this->read_register_8_(REG_DEVICE_ID);
   if (test_read == 0 || test_read == 0xFF) {
     ESP_LOGE(TAG, "RadSens not found at I2C address 0x%02X", this->address_);
@@ -24,51 +24,42 @@ void RadSensComponent::setup() {
   ESP_LOGCONFIG(TAG, "  Device ID: 0x%02X", this->device_id_);
   ESP_LOGCONFIG(TAG, "  Firmware Version: %d", this->firmware_version_);
   
-  if (this->device_id_ == 0 || this->device_id_ == 0xFF) {
-    ESP_LOGE(TAG, "Invalid device ID");
-    this->mark_failed();
-    return;
-  }
-  
   // Читаем текущую чувствительность
   this->sensitivity_ = this->read_register_16_(REG_SENSITIVITY);
   ESP_LOGCONFIG(TAG, "  Current Sensitivity: %d imp/µR", this->sensitivity_);
   
-  // Инициализация состояний
+  // Читаем состояния
   this->hv_generator_state_ = this->get_hv_generator_state();
-  this->hv_generator_initialized_ = true;
+  this->led_state_ = this->read_register_8_(REG_LED_CONTROL) > 0;
+  this->low_power_state_ = this->read_register_8_(REG_LOW_POWER_CONTROL) > 0;
   
-  this->led_state_ = this->get_led_state();
-  this->led_initialized_ = true;
+  ESP_LOGCONFIG(TAG, "  HV Generator: %s", this->hv_generator_state_ ? "ON" : "OFF");
+  ESP_LOGCONFIG(TAG, "  LED: %s", this->led_state_ ? "ON" : "OFF");
+  ESP_LOGCONFIG(TAG, "  Low Power: %s", this->low_power_state_ ? "ON" : "OFF");
   
-  this->low_power_state_ = this->get_low_power_state();
-  this->low_power_initialized_ = true;
-  
-  // Публикация начальных состояний для switch
+  // Публикуем начальные состояния для switch
   if (this->hv_generator_switch_ != nullptr) {
     this->hv_generator_switch_->publish_state(this->hv_generator_state_);
   }
-  
   if (this->led_switch_ != nullptr) {
     this->led_switch_->publish_state(this->led_state_);
   }
-  
   if (this->low_power_switch_ != nullptr) {
     this->low_power_switch_->publish_state(this->low_power_state_);
   }
   
+  // Публикуем начальное состояние для number
   if (this->sensitivity_number_ != nullptr) {
     this->sensitivity_number_->publish_state(static_cast<float>(this->sensitivity_));
-    this->sensitivity_initialized_ = true;
+  }
+  
+  // Публикуем начальное состояние для binary sensor
+  if (this->hv_generator_state_sensor_ != nullptr) {
+    this->hv_generator_state_sensor_->publish_state(this->hv_generator_state_);
   }
   
   this->initialized_ = true;
-  
   ESP_LOGI(TAG, "RadSens initialized successfully");
-  ESP_LOGI(TAG, "HV Generator: %s", this->hv_generator_state_ ? "ON" : "OFF");
-  ESP_LOGI(TAG, "LED: %s", this->led_state_ ? "ON" : "OFF");
-  ESP_LOGI(TAG, "Low Power: %s", this->low_power_state_ ? "ON" : "OFF");
-  ESP_LOGI(TAG, "Sensitivity: %d imp/µR", this->sensitivity_);
 }
 
 void RadSensComponent::dump_config() {
@@ -78,9 +69,9 @@ void RadSensComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "  Firmware Version: %d", this->firmware_version_);
   ESP_LOGCONFIG(TAG, "  Sensitivity: %d imp/µR", this->sensitivity_);
   ESP_LOGCONFIG(TAG, "  Update Interval: %u ms", this->update_interval_);
-  ESP_LOGCONFIG(TAG, "  HV Generator State: %s", this->hv_generator_state_ ? "ON" : "OFF");
-  ESP_LOGCONFIG(TAG, "  LED State: %s", this->led_state_ ? "ON" : "OFF");
-  ESP_LOGCONFIG(TAG, "  Low Power State: %s", this->low_power_state_ ? "ON" : "OFF");
+  ESP_LOGCONFIG(TAG, "  HV Generator: %s", this->hv_generator_state_ ? "ON" : "OFF");
+  ESP_LOGCONFIG(TAG, "  LED: %s", this->led_state_ ? "ON" : "OFF");
+  ESP_LOGCONFIG(TAG, "  Low Power: %s", this->low_power_state_ ? "ON" : "OFF");
   
   if (this->is_failed()) {
     ESP_LOGE(TAG, "  Communication failed!");
@@ -104,78 +95,69 @@ void RadSensComponent::loop() {
 void RadSensComponent::update_sensors_() {
   // Обновление состояния HV генератора
   bool new_hv_state = this->get_hv_generator_state();
-  if (this->hv_generator_initialized_ && new_hv_state != this->hv_generator_state_) {
+  if (new_hv_state != this->hv_generator_state_) {
     this->hv_generator_state_ = new_hv_state;
     
     if (this->hv_generator_state_sensor_ != nullptr) {
       this->hv_generator_state_sensor_->publish_state(this->hv_generator_state_);
     }
-    
     if (this->hv_generator_switch_ != nullptr) {
       this->hv_generator_switch_->publish_state(this->hv_generator_state_);
     }
-    
-    ESP_LOGD(TAG, "HV Generator state changed to: %s", this->hv_generator_state_ ? "ON" : "OFF");
+    ESP_LOGD(TAG, "HV Generator changed to: %s", this->hv_generator_state_ ? "ON" : "OFF");
   }
   
   // Обновление состояния LED
-  bool new_led_state = this->get_led_state();
-  if (this->led_initialized_ && new_led_state != this->led_state_) {
+  uint8_t led_reg = this->read_register_8_(REG_LED_CONTROL);
+  bool new_led_state = (led_reg > 0);
+  if (new_led_state != this->led_state_) {
     this->led_state_ = new_led_state;
-    
     if (this->led_switch_ != nullptr) {
       this->led_switch_->publish_state(this->led_state_);
     }
-    
-    ESP_LOGD(TAG, "LED state changed to: %s", this->led_state_ ? "ON" : "OFF");
+    ESP_LOGD(TAG, "LED changed to: %s", this->led_state_ ? "ON" : "OFF");
   }
   
   // Обновление состояния Low Power
-  bool new_low_power_state = this->get_low_power_state();
-  if (this->low_power_initialized_ && new_low_power_state != this->low_power_state_) {
-    this->low_power_state_ = new_low_power_state;
-    
+  uint8_t lpm_reg = this->read_register_8_(REG_LOW_POWER_CONTROL);
+  bool new_lpm_state = (lpm_reg > 0);
+  if (new_lpm_state != this->low_power_state_) {
+    this->low_power_state_ = new_lpm_state;
     if (this->low_power_switch_ != nullptr) {
       this->low_power_switch_->publish_state(this->low_power_state_);
     }
-    
-    ESP_LOGD(TAG, "Low Power state changed to: %s", this->low_power_state_ ? "ON" : "OFF");
+    ESP_LOGD(TAG, "Low Power changed to: %s", this->low_power_state_ ? "ON" : "OFF");
   }
   
   // Обновление чувствительности
   uint16_t new_sensitivity = this->read_register_16_(REG_SENSITIVITY);
   if (new_sensitivity != this->sensitivity_) {
     this->sensitivity_ = new_sensitivity;
-    
-    if (this->sensitivity_number_ != nullptr && this->sensitivity_initialized_) {
+    if (this->sensitivity_number_ != nullptr) {
       this->sensitivity_number_->publish_state(static_cast<float>(this->sensitivity_));
     }
-    
     ESP_LOGD(TAG, "Sensitivity changed to: %d imp/µR", this->sensitivity_);
   }
   
   // Чтение датчиков
-  uint16_t dyn_intensity_raw = this->read_register_16_(REG_DYNAMIC_INTENSITY_LOW);
-  float dynamic_intensity = dyn_intensity_raw * 0.1f;
-  
+  uint16_t dyn_raw = this->read_register_16_(REG_DYNAMIC_INTENSITY_LOW);
+  float dynamic_intensity = dyn_raw * 0.1f;
   if (this->dynamic_intensity_sensor_ != nullptr) {
     this->dynamic_intensity_sensor_->publish_state(dynamic_intensity);
   }
   
-  uint16_t stat_intensity_raw = this->read_register_16_(REG_STATIC_INTENSITY_LOW);
-  float static_intensity = stat_intensity_raw * 0.1f;
-  
+  uint16_t stat_raw = this->read_register_16_(REG_STATIC_INTENSITY_LOW);
+  float static_intensity = stat_raw * 0.1f;
   if (this->static_intensity_sensor_ != nullptr) {
     this->static_intensity_sensor_->publish_state(static_intensity);
   }
   
   uint32_t pulses = this->read_register_32_(REG_PULSE_COUNT_LOW);
-  
   if (this->pulses_sensor_ != nullptr) {
     this->pulses_sensor_->publish_state(pulses);
   }
   
-  ESP_LOGD(TAG, "Dynamic: %.1f µR/h, Static: %.1f µR/h, Pulses: %lu, HV: %s, LED: %s, LP: %s, Sens: %d imp/µR",
+  ESP_LOGD(TAG, "Dynamic: %.1f µR/h, Static: %.1f µR/h, Pulses: %lu, HV: %s, LED: %s, LP: %s, Sens: %d",
            dynamic_intensity, static_intensity, pulses,
            this->hv_generator_state_ ? "ON" : "OFF",
            this->led_state_ ? "ON" : "OFF",
@@ -189,7 +171,7 @@ void RadSensComponent::set_hv_generator(bool state) {
     this->hv_generator_state_ = state;
     ESP_LOGI(TAG, "HV Generator set to: %s", state ? "ON" : "OFF");
   } else {
-    ESP_LOGE(TAG, "Failed to set HV Generator state");
+    ESP_LOGE(TAG, "Failed to set HV Generator");
   }
 }
 
@@ -199,27 +181,33 @@ bool RadSensComponent::get_hv_generator_state() {
 }
 
 void RadSensComponent::set_led(bool state) {
-  // Если есть регистр управления LED, используйте его
-  // Например: this->write_register_8_(REG_LED_CONTROL, state ? 1 : 0);
-  this->led_state_ = state;
-  ESP_LOGI(TAG, "LED set to: %s", state ? "ON" : "OFF");
+  uint8_t value = state ? LED_ON : LED_OFF;
+  if (this->write_register_8_(REG_LED_CONTROL, value)) {
+    this->led_state_ = state;
+    ESP_LOGI(TAG, "LED set to: %s", state ? "ON" : "OFF");
+  } else {
+    ESP_LOGE(TAG, "Failed to set LED");
+  }
 }
 
 bool RadSensComponent::get_led_state() {
-  // Если есть регистр состояния LED, читайте его
-  // Например: return this->read_register_8_(REG_LED_CONTROL) > 0;
-  return this->led_state_;
+  uint8_t state = this->read_register_8_(REG_LED_CONTROL);
+  return (state > 0);
 }
 
 void RadSensComponent::set_low_power(bool state) {
-  // Если есть регистр управления Low Power, используйте его
-  this->low_power_state_ = state;
-  ESP_LOGI(TAG, "Low Power mode set to: %s", state ? "ON" : "OFF");
+  uint8_t value = state ? LOW_POWER_ON : LOW_POWER_OFF;
+  if (this->write_register_8_(REG_LOW_POWER_CONTROL, value)) {
+    this->low_power_state_ = state;
+    ESP_LOGI(TAG, "Low Power mode set to: %s", state ? "ON" : "OFF");
+  } else {
+    ESP_LOGE(TAG, "Failed to set Low Power mode");
+  }
 }
 
 bool RadSensComponent::get_low_power_state() {
-  // Если есть регистр состояния Low Power, читайте его
-  return this->low_power_state_;
+  uint8_t state = this->read_register_8_(REG_LOW_POWER_CONTROL);
+  return (state > 0);
 }
 
 void RadSensComponent::set_sensitivity(uint16_t sensitivity) {
