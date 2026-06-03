@@ -51,14 +51,14 @@ RAD_SENS_PULSES_SCHEMA = sensor.sensor_schema(
     state_class=STATE_CLASS_MEASUREMENT,
 )
 
-# Схема для number (чувствительность) - исправлено
+# Схема для number (чувствительность)
 RAD_SENS_SENSITIVITY_NUMBER_SCHEMA = cv.Schema({
     cv.Optional(CONF_MIN_VALUE, default=100): cv.float_,
     cv.Optional(CONF_MAX_VALUE, default=1100): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
     cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="imp/µR"): cv.string_strict,
     cv.Optional(CONF_ICON, default="mdi:tune"): cv.icon,
-}).extend(number.NUMBER_SCHEMA)  # Используем number.NUMBER_SCHEMA как базу
+}).extend(number.NUMBER_SCHEMA)
 
 # Схема конфигурации
 CONFIG_SCHEMA = cv.Schema({
@@ -102,10 +102,10 @@ async def to_code(config):
         cg.add(var.set_hv_generator_switch(sw))
     
     if CONF_SENSITIVITY_NUMBER in config:
-        num = await number.new_number(config[CONF_SENSITIVITY_NUMBER], 
-                                     min_value=config[CONF_SENSITIVITY_NUMBER][CONF_MIN_VALUE],
-                                     max_value=config[CONF_SENSITIVITY_NUMBER][CONF_MAX_VALUE],
-                                     step=config[CONF_SENSITIVITY_NUMBER][CONF_STEP])
-        cg.add(var.set_sensitivity_number(num))
-                                     step=config[CONF_SENSITIVITY_NUMBER].get(CONF_STEP))
+        num = await number.new_number(
+            config[CONF_SENSITIVITY_NUMBER],
+            min_value=config[CONF_SENSITIVITY_NUMBER][CONF_MIN_VALUE],
+            max_value=config[CONF_SENSITIVITY_NUMBER][CONF_MAX_VALUE],
+            step=config[CONF_SENSITIVITY_NUMBER][CONF_STEP]
+        )
         cg.add(var.set_sensitivity_number(num))
