@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import binary_sensor
+from esphome.const import CONF_ID
 
 from . import RadSensComponent
 
@@ -12,7 +13,7 @@ CONFIG_SCHEMA = cv.Schema({
 })
 
 async def to_code(config):
-    parent = await cg.get_variable(config["id"])
+    parent = await cg.get_variable(config[CONF_ID])
     
     if "hv_generator_state" in config:
         bs = await binary_sensor.new_binary_sensor(config["hv_generator_state"])
