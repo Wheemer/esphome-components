@@ -5,9 +5,7 @@
 #include "esphome/core/hal.h"
 
 #ifdef USE_ESP32
-#include "esp_adc/adc_oneshot.h"
-#include "esp_adc/adc_cali.h"
-#include "esp_adc/adc_cali_scheme.h"
+#include <driver/adc.h>
 #endif
 
 namespace esphome {
@@ -46,12 +44,6 @@ class LilygotBattery : public PollingComponent {
   float read_adc_voltage_();
   float calculate_usb_voltage_(float battery_voltage);
   int calculate_battery_level_(float battery_voltage);
-  
-#ifdef USE_ESP32
-  adc_oneshot_unit_handle_t adc_handle_{nullptr};
-  adc_cali_handle_t cali_handle_{nullptr};
-  bool adc_initialized_{false};
-#endif
 };
 
 }  // namespace lilygo_t_battery
