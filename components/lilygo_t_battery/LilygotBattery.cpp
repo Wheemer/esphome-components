@@ -1,6 +1,10 @@
 #include "LilygotBattery.h"
 #include "esphome/core/log.h"
 
+#ifdef USE_ESP32
+#include <driver/adc.h>
+#endif
+
 namespace esphome {
 namespace lilygo_t_battery {
 
@@ -17,32 +21,10 @@ void LilygotBattery::setup() {
   }
   
 #ifdef USE_ESP32
-  // Инициализация ADC для ESP-IDF
-  adc_oneshot_unit_init_cfg_t init_config = {
-      .unit_id = ADC_UNIT_1,
-  };
-  ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adc_handle_));
-  
-  // Настройка канала ADC (GPIO34 = ADC1_CHANNEL_6)
-  adc_oneshot_chan_cfg_t config = {
-      .atten = ADC_ATTEN_DB_12,
-      .bitwidth = ADC_BITWIDTH_12,
-  };
-  ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle_, ADC_CHANNEL_6, &config));
-  
-  // Калибровка ADC
-  adc_cali_curve_fitting_config_t cali_config = {
-      .unit_id = ADC_UNIT_1,
-      .atten = ADC_ATTEN_DB_12,
-      .bitwidth = ADC_BITWIDTH_12,
-  };
-  esp_err_t ret = adc_cali_create_scheme_curve_fitting(&cali_config, &cali_handle_);
-  if (ret == ESP_OK) {
-    adc_initialized_ = true;
-    ESP_LOGD(TAG, "ADC calibration successful");
-  } else {
-    ESP_LOGW(TAG, "ADC calibration failed");
-  }
+  // Простая настройка ADC для ESP-IDF
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_12);
+  ESP_LOGD(TAG, "ADC configured for GPIO34");
 #endif
   
   ESP_LOGCONFIG(TAG, "Setup complete");
@@ -59,29 +41,20 @@ float LilygotBattery::read_adc_voltage_() {
   }
   
 #ifdef USE_ESP32
-  // Прямое чтение ADC
-  if (adc_handle_ != nullptr) {
-    int adc_raw = 0;
-    esp_err_t ret = adc_oneshot_read(adc_handle_, ADC_CHANNEL_6, &adc_raw);
-    if (ret == ESP_OK) {
-      if (adc_initialized_ && cali_handle_ != nullptr) {
-        int voltage_mv = 0;
-        ret = adc_cali_raw_to_voltage(cali_handle_, adc_raw, &voltage_mv);
-        if (ret == ESP_OK) {
-          adc_voltage = voltage_mv / 1000.0f;
-        }
-      } else {
-        // Без калибровки
-        adc_voltage = (adc_raw / 4095.0f) * reference_voltage_;
-      }
-    }
+  // Прямое чтение ADC через adc1
+  int adc_raw = adc1_get_raw(ADC1_CHANNEL_6);
+  if (adc_raw > 0) {
+    // Преобразуем в напряжение (12-bit ADC, 0-4095)
+    adc_voltage = (adc_raw / 4095.0f) * reference_voltage_;
+  } else {
+    ESP_LOGW(TAG, "Failed to read ADC value");
   }
 #else
   // Для Arduino framework
   adc_voltage = analogRead(34) / 4095.0f * reference_voltage_;
 #endif
   
-  ESP_LOGV(TAG, "ADC raw voltage: %.3f V", adc_voltage);
+  ESP_LOGV(TAG, "ADC raw voltage: %.3f V (raw: %d)", adc_voltage, adc_raw);
   return adc_voltage;
 }
 
@@ -94,7 +67,7 @@ float LilygotBattery::calculate_usb_voltage_(float battery_voltage) {
 }
 
 int LilygotBattery::calculate_battery_level_(float battery_voltage) {
-  // Типичные значения для LiPo аккумулятора
+  // Типичные значения для LiPo аккумулятора 3.7V
   const float BATTERY_FULL = 4.2f;
   const float BATTERY_EMPTY = 3.25f;
   
@@ -112,7 +85,10 @@ int LilygotBattery::calculate_battery_level_(float battery_voltage) {
   int level = (int)((battery_voltage - BATTERY_EMPTY) / (BATTERY_FULL - BATTERY_EMPTY) * 100.0f);
   
   // Ограничиваем диапазон
-  return std::min(100, std::max(0, level));
+  if (level > 100) level = 100;
+  if (level < 0) level = 0;
+  
+  return level;
 }
 
 void LilygotBattery::update() {
@@ -121,6 +97,7 @@ void LilygotBattery::update() {
   // Включаем пин для измерения (если нужен)
   if (enable_pin_ != nullptr) {
     enable_pin_->digital_write(true);
+    // Небольшая задержка для стабилизации
     delay(10);
   }
   
