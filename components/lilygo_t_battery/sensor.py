@@ -7,73 +7,73 @@ from esphome.const import (
     CONF_SENSOR,
     CONF_ENABLE_PIN,
     CONF_VOLTAGE,
-    CONF_BUS_VOLTAGE,
-    CONF_LEVEL,
     UNIT_VOLT,
     UNIT_PERCENT,
     DEVICE_CLASS_VOLTAGE,
     DEVICE_CLASS_BATTERY,
+    ICON_BATTERY,
+    CONF_UPDATE_INTERVAL,
 )
 
-CODEOWNERS = ["ananyevgv"]
+CONF_VOLTAGE_DIVIDER = "voltage_divider"
+CONF_BUS_VOLTAGE = "bus_voltage"
+CONF_LEVEL = "level"
 
-DEPENDENCIES = ["esp32"]
+ICON_BATTERY_CHARGING = "mdi:battery-charging"
+
+CODEOWNERS = ["ananyevgv"]
 
 Lilygotbattery_ns = cg.esphome_ns.namespace("lilygo_t_battery")
 LilygotBattery = Lilygotbattery_ns.class_("LilygotBattery", cg.PollingComponent)
 
-CONF_VOLTAGE_DIVIDER = "voltage_divider"
-
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(LilygotBattery),
-    cv.Required(CONF_SENSOR): cv.use_id(sensor.Sensor),
     cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
-    cv.Optional(CONF_VOLTAGE_DIVIDER, default=7.26): cv.float_range(min=1.0, max=20.0),
-    
+    cv.Optional(CONF_VOLTAGE_DIVIDER, default=6.0): cv.float_,
+    cv.Required(CONF_SENSOR): cv.use_id(sensor.Sensor),
     cv.Optional(CONF_VOLTAGE): sensor.sensor_schema(
         unit_of_measurement=UNIT_VOLT,
+        icon=ICON_BATTERY,
         accuracy_decimals=2,
         device_class=DEVICE_CLASS_VOLTAGE,
     ),
-    
     cv.Optional(CONF_BUS_VOLTAGE): sensor.sensor_schema(
         unit_of_measurement=UNIT_VOLT,
         accuracy_decimals=2,
+        icon=ICON_BATTERY_CHARGING,
         device_class=DEVICE_CLASS_VOLTAGE,
     ),
-    
     cv.Optional(CONF_LEVEL): sensor.sensor_schema(
         unit_of_measurement=UNIT_PERCENT,
         accuracy_decimals=0,
+        icon=ICON_BATTERY,
         device_class=DEVICE_CLASS_BATTERY,
     ),
-}).extend(cv.polling_component_schema('60s'))
+}).extend(cv.polling_component_schema("30s"))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    
-    # ADC sensor
-    adc_sensor = await cg.get_variable(config[CONF_SENSOR])
-    cg.add(var.set_adc_sensor(adc_sensor))
-    
-    # Enable pin
-    if CONF_ENABLE_PIN in config:
-        enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
-        cg.add(var.set_enable_pin(enable_pin))
-    
-    # Voltage divider
-    cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
-    
-    # Sensors
+
+    if CONF_SENSOR in config:
+        sens = await cg.get_variable(config[CONF_SENSOR])
+        cg.add(var.set_adc_sensor(sens))
+
+    if CONF_VOLTAGE_DIVIDER in config:
+        cg.add(var.set_voltage_divider(config[CONF_VOLTAGE_DIVIDER]))
+
     if CONF_VOLTAGE in config:
         sens = await sensor.new_sensor(config[CONF_VOLTAGE])
         cg.add(var.set_voltage_sensor(sens))
-    
+
     if CONF_BUS_VOLTAGE in config:
         sens = await sensor.new_sensor(config[CONF_BUS_VOLTAGE])
         cg.add(var.set_bus_voltage_sensor(sens))
-    
+
     if CONF_LEVEL in config:
         sens = await sensor.new_sensor(config[CONF_LEVEL])
         cg.add(var.set_battery_level_sensor(sens))
+
+    if CONF_ENABLE_PIN in config:
+        enable = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
+        cg.add(var.set_enable_pin(enable))
