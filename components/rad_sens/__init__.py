@@ -9,7 +9,6 @@ from esphome.const import (
     CONF_MIN_VALUE,
     CONF_MAX_VALUE,
     ICON_RADIOACTIVE,
-    DEVICE_CLASS_RADIATION,  # Изменено с RADIOACTIVITY на RADIATION
     STATE_CLASS_MEASUREMENT,
     UNIT_MICROSIEMENS_PER_HOUR,
     UNIT_COUNT,
@@ -26,14 +25,13 @@ CONF_STATIC_INTENSITY = "static_intensity"
 CONF_PULSES = "pulses"
 CONF_HV_GENERATOR_STATE = "hv_generator_state"
 CONF_HV_GENERATOR_SWITCH = "hv_generator_switch"
-CONF_SENSITIVITY_NUMBER = "sensitivity"  # Новый параметр для настройки чувствительности
+CONF_SENSITIVITY_NUMBER = "sensitivity"
 
-# Конфигурация сенсоров
+# Конфигурация сенсоров - убрали device_class
 RAD_SENS_SENSOR_SCHEMA = sensor.sensor_schema(
     unit_of_measurement=UNIT_MICROSIEMENS_PER_HOUR,
     icon=ICON_RADIOACTIVE,
     accuracy_decimals=3,
-    device_class=DEVICE_CLASS_RADIOACTIVITY,
     state_class=STATE_CLASS_MEASUREMENT,
 )
 
