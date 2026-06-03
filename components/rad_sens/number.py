@@ -9,7 +9,7 @@ DEPENDENCIES = ['rad_sens']
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(RadSensComponent),
-    cv.Optional("sensitivity"): number.NUMBER_SCHEMA.extend({
+    cv.Optional("sensitivity"): number._NUMBER_SCHEMA.extend({
         cv.Optional("min_value", default=100): cv.float_,
         cv.Optional("max_value", default=1100): cv.float_,
         cv.Optional("step", default=1): cv.float_,
