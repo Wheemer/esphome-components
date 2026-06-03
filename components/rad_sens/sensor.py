@@ -8,15 +8,15 @@ from esphome.const import (
 )
 
 from . import RadSensComponent
-from .const import (
-    UNIT_MICROROENTGEN_PER_HOUR,
-    UNIT_COUNT_PER_MINUTE,
-    CONF_DYNAMIC_INTENSITY,
-    CONF_STATIC_INTENSITY,
-    CONF_COUNTS_PER_MINUTE,
-)
 
 DEPENDENCIES = ['rad_sens']
+
+CONF_DYNAMIC_INTENSITY = "dynamic_intensity"
+CONF_STATIC_INTENSITY = "static_intensity"
+CONF_PULSES = "pulses"
+
+UNIT_MICROROENTGEN_PER_HOUR = "µR/h"
+UNIT_COUNT_PER_MINUTE = "count/min"
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(RadSensComponent),
@@ -32,7 +32,7 @@ CONFIG_SCHEMA = cv.Schema({
         accuracy_decimals=3,
         state_class=STATE_CLASS_MEASUREMENT,
     ),
-    cv.Optional(CONF_COUNTS_PER_MINUTE): sensor.sensor_schema(
+    cv.Optional(CONF_PULSES): sensor.sensor_schema(
         unit_of_measurement=UNIT_COUNT_PER_MINUTE,
         icon=ICON_RADIOACTIVE,
         accuracy_decimals=0,
@@ -51,6 +51,6 @@ async def to_code(config):
         sens = await sensor.new_sensor(config[CONF_STATIC_INTENSITY])
         cg.add(parent.set_static_intensity_sensor(sens))
     
-    if CONF_COUNTS_PER_MINUTE in config:
-        sens = await sensor.new_sensor(config[CONF_COUNTS_PER_MINUTE])
+    if CONF_PULSES in config:
+        sens = await sensor.new_sensor(config[CONF_PULSES])
         cg.add(parent.set_pulses_sensor(sens))
