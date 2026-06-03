@@ -18,7 +18,7 @@ CONFIG_SCHEMA = cv.Schema({
 })
 
 async def to_code(config):
-    parent = await cg.get_variable(config[CONF_ID])
+    parent = await cg.get_variable(config["id"])
     
     if "sensitivity" in config:
         num = await number.new_number(
