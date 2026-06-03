@@ -39,10 +39,13 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   void set_static_intensity_sensor(sensor::Sensor *sensor) { static_intensity_sensor_ = sensor; }
   void set_pulses_sensor(sensor::Sensor *sensor) { pulses_sensor_ = sensor; }
   void set_hv_generator_state_sensor(binary_sensor::BinarySensor *sensor) { hv_generator_state_sensor_ = sensor; }
-  void set_hv_generator_switch(switch_::Switch *sw) { hv_generator_switch_ = sw; }
-  void set_led_switch(switch_::Switch *sw) { led_switch_ = sw; }
-  void set_low_power_switch(switch_::Switch *sw) { low_power_switch_ = sw; }
-  void set_sensitivity_number(number::Number *num) { sensitivity_number_ = num; }
+  void set_control_led_switch(switch_::Switch *sw) { led_switch_ = sw; }
+  void set_control_high_voltage_switch(switch_::Switch *sw) { hv_generator_switch_ = sw; }
+  void set_control_low_power_switch(switch_::Switch *sw) { low_power_switch_ = sw; }
+
+// Добавьте методы для получения состояний:
+bool get_led() { return led_state_; }
+bool get_low_power() { return low_power_state_; 
   
   void set_hv_generator(bool state);
   bool get_hv_generator_state();
