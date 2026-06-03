@@ -20,7 +20,9 @@ void RadSensComponent::setup() {
   
   this->device_id_ = test_read;
   this->firmware_version_ = this->read_register_8_(REG_FIRMWARE_VER);
-  
+  if (this->firmware_version_sensor_ != nullptr) {
+      this->firmware_version_sensor_->publish_state(this->firmware_version_);
+  }
   ESP_LOGCONFIG(TAG, "  Device ID: 0x%02X", this->device_id_);
   ESP_LOGCONFIG(TAG, "  Firmware Version: %d", this->firmware_version_);
   
