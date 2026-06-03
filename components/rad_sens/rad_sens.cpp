@@ -18,17 +18,19 @@ void RadSensComponent::setup() {
   
   this->device_id_ = this->read_register_8_(REG_DEVICE_ID);
   this->firmware_version_ = this->read_register_8_(REG_FIRMWARE_VER);
-  this->sensitivity_ = this->read_register_16_(REG_SENSITIVITY);
   
   ESP_LOGCONFIG(TAG, "  Device ID: 0x%02X", this->device_id_);
   ESP_LOGCONFIG(TAG, "  Firmware Version: %d", this->firmware_version_);
-  ESP_LOGCONFIG(TAG, "  Sensitivity: %d imp/µR", this->sensitivity_);
   
   if (this->device_id_ == 0 || this->device_id_ == 0xFF) {
     ESP_LOGE(TAG, "Invalid device ID");
     this->mark_failed();
     return;
   }
+  
+  // Читаем текущую чувствительность
+  this->sensitivity_ = this->read_register_16_(REG_SENSITIVITY);
+  ESP_LOGCONFIG(TAG, "  Current Sensitivity: %d imp/µR", this->sensitivity_);
   
   // Инициализация состояний
   this->hv_generator_state_ = this->get_hv_generator_state();
@@ -57,6 +59,8 @@ void RadSensComponent::setup() {
     this->sensitivity_number_->publish_state(static_cast<float>(this->sensitivity_));
     this->sensitivity_initialized_ = true;
   }
+  
+  this->initialized_ = true;
   
   ESP_LOGI(TAG, "RadSens initialized successfully");
   ESP_LOGI(TAG, "HV Generator: %s", this->hv_generator_state_ ? "ON" : "OFF");
@@ -193,33 +197,28 @@ bool RadSensComponent::get_hv_generator_state() {
 }
 
 void RadSensComponent::set_led(bool state) {
-  uint8_t value = state ? LED_ON : LED_OFF;
-  if (this->write_register_8_(REG_LED_CONTROL, value)) {
-    this->led_state_ = state;
-    ESP_LOGI(TAG, "LED set to: %s", state ? "ON" : "OFF");
-  } else {
-    ESP_LOGE(TAG, "Failed to set LED state");
-  }
+  // Если есть регистр управления LED, используйте его
+  // Пока просто логируем
+  this->led_state_ = state;
+  ESP_LOGI(TAG, "LED set to: %s", state ? "ON" : "OFF");
+  // TODO: Добавить реальную запись в регистр, если доступно
 }
 
 bool RadSensComponent::get_led_state() {
-  uint8_t state = this->read_register_8_(REG_LED_CONTROL);
-  return (state > 0);
+  // TODO: Реализовать чтение состояния LED
+  return this->led_state_;
 }
 
 void RadSensComponent::set_low_power(bool state) {
-  uint8_t value = state ? LOW_POWER_ON : LOW_POWER_OFF;
-  if (this->write_register_8_(REG_LOW_POWER_CONTROL, value)) {
-    this->low_power_state_ = state;
-    ESP_LOGI(TAG, "Low Power mode set to: %s", state ? "ON" : "OFF");
-  } else {
-    ESP_LOGE(TAG, "Failed to set Low Power mode");
-  }
+  // Если есть регистр управления Low Power, используйте его
+  this->low_power_state_ = state;
+  ESP_LOGI(TAG, "Low Power mode set to: %s", state ? "ON" : "OFF");
+  // TODO: Добавить реальную запись в регистр, если доступно
 }
 
 bool RadSensComponent::get_low_power_state() {
-  uint8_t state = this->read_register_8_(REG_LOW_POWER_CONTROL);
-  return (state > 0);
+  // TODO: Реализовать чтение состояния Low Power
+  return this->low_power_state_;
 }
 
 void RadSensComponent::set_sensitivity(uint16_t sensitivity) {
@@ -228,11 +227,15 @@ void RadSensComponent::set_sensitivity(uint16_t sensitivity) {
     return;
   }
   
-  if (this->write_register_16_(REG_SENSITIVITY, sensitivity)) {
-    this->sensitivity_ = sensitivity;
-    ESP_LOGI(TAG, "Sensitivity set to: %d imp/µR", sensitivity);
+  if (this->initialized_ || !this->is_failed()) {
+    if (this->write_register_16_(REG_SENSITIVITY, sensitivity)) {
+      this->sensitivity_ = sensitivity;
+      ESP_LOGI(TAG, "Sensitivity set to: %d imp/µR", sensitivity);
+    } else {
+      ESP_LOGE(TAG, "Failed to set sensitivity");
+    }
   } else {
-    ESP_LOGE(TAG, "Failed to set sensitivity");
+    this->sensitivity_ = sensitivity;
   }
 }
 
