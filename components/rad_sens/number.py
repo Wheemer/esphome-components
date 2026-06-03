@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number
+from esphome.const import CONF_ID
 
 from . import RadSensComponent
 
@@ -18,7 +19,7 @@ CONFIG_SCHEMA = cv.Schema({
 })
 
 async def to_code(config):
-    parent = await cg.get_variable(config["id"])
+    parent = await cg.get_variable(config[CONF_ID])
     
     if "sensitivity" in config:
         num = await number.new_number(
@@ -27,4 +28,5 @@ async def to_code(config):
             max_value=config["sensitivity"]["max_value"],
             step=config["sensitivity"]["step"]
         )
+        cg.add(parent.set_sensitivity_number(num))
         cg.add(parent.set_sensitivity_number(num))
