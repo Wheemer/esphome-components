@@ -3,21 +3,6 @@ Dosimeter  ESPHome for Climateguard RadSens 1v2, 1v7, 2v7 +
 По мотивам 
 https://github.com/med-lasers/Dosimeter_RadSens_NarodMon
 ``` yaml
-esphome:
-  name: dosimeter
-
-external_components:
-  - source: /config/esphome/components
-
-esp32:
-  board: esp32dev
-  framework:
-    type: arduino
-
-i2c:
-  sda: GPIO21
-  scl: GPIO22
-  scan: true
 
 sensor:
   - platform: rad_sens
@@ -28,7 +13,7 @@ sensor:
     pulses:
       name: "Counts Per Minute"
     update_interval: 60s
-    sensitivity: 105   # прямая настройка чувствительности
+    sensitivity: 105  
     address: 0x66
 
 binary_sensor:
