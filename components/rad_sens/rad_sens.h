@@ -32,25 +32,17 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
  public:
   void setup() override;
   void dump_config() override;
-  void loop() override;  // Вместо update() используем loop()
+  void loop() override;
   
   void set_update_interval(uint32_t interval) { update_interval_ = interval; }
   void set_dynamic_intensity_sensor(sensor::Sensor *sensor) { dynamic_intensity_sensor_ = sensor; }
   void set_static_intensity_sensor(sensor::Sensor *sensor) { static_intensity_sensor_ = sensor; }
   void set_pulses_sensor(sensor::Sensor *sensor) { pulses_sensor_ = sensor; }
   void set_hv_generator_state_sensor(binary_sensor::BinarySensor *sensor) { hv_generator_state_sensor_ = sensor; }
-  void set_hv_generator_switch(switch_::Switch *sw) { 
-    hv_generator_switch_ = sw;
-  }
-  void set_led_switch(switch_::Switch *sw) { 
-    led_switch_ = sw;
-  }
-  void set_low_power_switch(switch_::Switch *sw) { 
-    low_power_switch_ = sw;
-  }
-  void set_sensitivity_number(number::Number *num) { 
-    sensitivity_number_ = num;
-  }
+  void set_hv_generator_switch(switch_::Switch *sw) { hv_generator_switch_ = sw; }
+  void set_led_switch(switch_::Switch *sw) { led_switch_ = sw; }
+  void set_low_power_switch(switch_::Switch *sw) { low_power_switch_ = sw; }
+  void set_sensitivity_number(number::Number *num) { sensitivity_number_ = num; }
   
   void set_hv_generator(bool state);
   bool get_hv_generator_state();
@@ -81,7 +73,6 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   uint16_t sensitivity_{0};
   bool initialized_{false};
   
-  bool check_device_ready();
   uint8_t read_register_8_(uint8_t reg);
   uint16_t read_register_16_(uint8_t reg);
   uint32_t read_register_32_(uint8_t reg);
