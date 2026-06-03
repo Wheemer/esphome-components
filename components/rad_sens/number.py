@@ -24,18 +24,13 @@ async def to_code(config):
     if "sensitivity" in config:
         sens_config = config["sensitivity"]
         
-        # Создаём переменную number
-        var = cg.new_Pvariable(sens_config[CONF_ID])
-        await number.register_number(var, sens_config)
+        # Создаём number компонент
+        num = cg.new_Pvariable(sens_config[CONF_ID])
+        cg.add(num.set_min_value(sens_config["min_value"]))
+        cg.add(num.set_max_value(sens_config["max_value"]))
+        cg.add(num.set_step(sens_config["step"]))
+        cg.add(num.set_unit_of_measurement(sens_config["unit_of_measurement"]))
+        cg.add(num.set_icon(sens_config["icon"]))
         
-        # Устанавливаем параметры
-        cg.add(var.set_min_value(sens_config["min_value"]))
-        cg.add(var.set_max_value(sens_config["max_value"]))
-        cg.add(var.set_step(sens_config["step"]))
-        
-        if "unit_of_measurement" in sens_config:
-            cg.add(var.set_unit_of_measurement(sens_config["unit_of_measurement"]))
-        if "icon" in sens_config:
-            cg.add(var.set_icon(sens_config["icon"]))
-        
-        cg.add(parent.set_sensitivity_number(var))
+        # Регистрируем в родительском компоненте
+        cg.add(parent.set_sensitivity_number(num))
