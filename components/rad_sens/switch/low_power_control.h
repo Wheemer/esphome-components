@@ -9,7 +9,7 @@ namespace rad_sens {
 class LowPowerControl : public switch_::Switch, public Parented<RadSensComponent> {
  public:
   LowPowerControl() = default;
-  void setup() override;
+  void setup();
 
  protected:
   void write_state(bool state) override;
