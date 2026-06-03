@@ -1,4 +1,4 @@
-#pragma once
+##pragma once
 
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
@@ -16,8 +16,6 @@ static const uint8_t REG_FIRMWARE_VER = 0x01;
 static const uint8_t REG_HV_GENERATOR_STATE = 0x03;
 static const uint8_t REG_HV_GENERATOR_CONTROL = 0x04;
 static const uint8_t REG_SENSITIVITY = 0x10;
-static const uint8_t REG_LED_CONTROL = 0x05;        // Добавлено
-static const uint8_t REG_LOW_POWER_CONTROL = 0x06;  // Добавлено
 static const uint8_t REG_DYNAMIC_INTENSITY_LOW = 0x24;
 static const uint8_t REG_DYNAMIC_INTENSITY_HIGH = 0x25;
 static const uint8_t REG_STATIC_INTENSITY_LOW = 0x26;
@@ -29,10 +27,6 @@ static const uint8_t REG_PULSE_COUNT_3 = 0x2B;
 
 static const uint8_t HV_GENERATOR_ON = 0x01;
 static const uint8_t HV_GENERATOR_OFF = 0x00;
-static const uint8_t LED_ON = 0x01;
-static const uint8_t LED_OFF = 0x00;
-static const uint8_t LOW_POWER_ON = 0x01;
-static const uint8_t LOW_POWER_OFF = 0x00;
 
 class RadSensComponent : public Component, public i2c::I2CDevice {
  public:
@@ -89,6 +83,7 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   uint8_t device_id_{0};
   uint8_t firmware_version_{0};
   uint16_t sensitivity_{0};
+  bool initialized_{false};
   
   uint8_t read_register_8_(uint8_t reg);
   uint16_t read_register_16_(uint8_t reg);
