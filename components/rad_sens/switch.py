@@ -9,9 +9,9 @@ DEPENDENCIES = ['rad_sens']
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.use_id(RadSensComponent),
-    cv.Optional("hv_generator_switch"): switch.switch_schema(),
-    cv.Optional("led_switch"): switch.switch_schema(),
-    cv.Optional("low_power_switch"): switch.switch_schema(),
+    cv.Optional("hv_generator_switch"): switch.switch_schema(class_=switch.Switch),
+    cv.Optional("led_switch"): switch.switch_schema(class_=switch.Switch),
+    cv.Optional("low_power_switch"): switch.switch_schema(class_=switch.Switch),
 })
 
 async def to_code(config):
