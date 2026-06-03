@@ -51,20 +51,18 @@ RAD_SENS_PULSES_SCHEMA = sensor.sensor_schema(
     state_class=STATE_CLASS_MEASUREMENT,
 )
 
-# Схема для number (чувствительность) - используем базовую схему number
-def validate_number_config(config):
-    return config
+# Схема для number (чувствительность)
+RAD_SENS_SENSITIVITY_NUMBER_SCHEMA = number._NUMBER_SCHEMA.extend({
+    cv.Optional(CONF_MIN_VALUE, default=100): cv.float_,
+    cv.Optional(CONF_MAX_VALUE, default=1100): cv.float_,
+    cv.Optional(CONF_STEP, default=1): cv.float_,
+    cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="imp/µR"): cv.string_strict,
+    cv.Optional(CONF_ICON, default="mdi:tune"): cv.icon,
+})
 
-RAD_SENS_SENSITIVITY_NUMBER_SCHEMA = cv.All(
-    number._NUMBER_SCHEMA,
-    cv.Schema({
-        cv.Optional(CONF_MIN_VALUE, default=100): cv.float_,
-        cv.Optional(CONF_MAX_VALUE, default=1100): cv.float_,
-        cv.Optional(CONF_STEP, default=1): cv.float_,
-        cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="imp/µR"): cv.string_strict,
-        cv.Optional(CONF_ICON, default="mdi:tune"): cv.icon,
-    }, extra=cv.ALLOW_EXTRA),
-)
+# Импортируем классы для switch и binary_sensor
+from esphome.components.binary_sensor import BinarySensor
+from esphome.components.switch import Switch
 
 # Схема конфигурации
 CONFIG_SCHEMA = cv.Schema({
@@ -74,7 +72,7 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_STATIC_INTENSITY): RAD_SENS_SENSOR_SCHEMA,
     cv.Optional(CONF_PULSES): RAD_SENS_PULSES_SCHEMA,
     cv.Optional(CONF_HV_GENERATOR_STATE): binary_sensor.binary_sensor_schema(),
-    cv.Optional(CONF_HV_GENERATOR_SWITCH): switch.switch_schema(),
+    cv.Optional(CONF_HV_GENERATOR_SWITCH): switch.switch_schema(Switch),
     cv.Optional(CONF_SENSITIVITY_NUMBER): RAD_SENS_SENSITIVITY_NUMBER_SCHEMA,
     cv.Optional(CONF_UPDATE_INTERVAL, default='60s'): cv.update_interval,
 }).extend(cv.COMPONENT_SCHEMA).extend(i2c.i2c_device_schema(0x66))
