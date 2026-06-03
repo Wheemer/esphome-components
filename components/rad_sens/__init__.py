@@ -56,7 +56,7 @@ def validate_number_config(config):
     return config
 
 RAD_SENS_SENSITIVITY_NUMBER_SCHEMA = cv.All(
-    number.NUMBER_SCHEMA,
+    number._NUMBER_SCHEMA,
     cv.Schema({
         cv.Optional(CONF_MIN_VALUE, default=100): cv.float_,
         cv.Optional(CONF_MAX_VALUE, default=1100): cv.float_,
