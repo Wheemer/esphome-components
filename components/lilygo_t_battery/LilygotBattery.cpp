@@ -2,7 +2,7 @@
 #include "esphome/core/log.h"
 
 #ifdef USE_ESP32
-#include <driver/adc.h>
+#include "esp_adc/adc_oneshot.h"
 #endif
 
 namespace esphome {
@@ -21,10 +21,27 @@ void LilygotBattery::setup() {
   }
   
 #ifdef USE_ESP32
-  // Простая настройка ADC для ESP-IDF
-  adc1_config_width(ADC_WIDTH_BIT_12);
-  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_12);
-  ESP_LOGD(TAG, "ADC configured for GPIO34");
+  // Используем новый ADC API (adc_oneshot)
+  adc_oneshot_unit_init_cfg_t init_config = {
+      .unit_id = ADC_UNIT_1,
+  };
+  esp_err_t ret = adc_oneshot_new_unit(&init_config, &adc_handle_);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to initialize ADC unit: %s", esp_err_to_name(ret));
+    return;
+  }
+  
+  // Настройка канала (GPIO34 = ADC1_CHANNEL_6)
+  adc_oneshot_chan_cfg_t config = {
+      .atten = ADC_ATTEN_DB_12,
+      .bitwidth = ADC_BITWIDTH_12,
+  };
+  ret = adc_oneshot_config_channel(adc_handle_, ADC_CHANNEL_6, &config);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to configure ADC channel: %s", esp_err_to_name(ret));
+  } else {
+    ESP_LOGD(TAG, "ADC configured for GPIO34 (Channel 6)");
+  }
 #endif
   
   ESP_LOGCONFIG(TAG, "Setup complete");
@@ -41,20 +58,25 @@ float LilygotBattery::read_adc_voltage_() {
   }
   
 #ifdef USE_ESP32
-  // Прямое чтение ADC через adc1
-  int adc_raw = adc1_get_raw(ADC1_CHANNEL_6);
-  if (adc_raw > 0) {
-    // Преобразуем в напряжение (12-bit ADC, 0-4095)
-    adc_voltage = (adc_raw / 4095.0f) * reference_voltage_;
+  // Прямое чтение ADC через adc_oneshot
+  if (adc_handle_ != nullptr) {
+    int adc_raw = 0;
+    esp_err_t ret = adc_oneshot_read(adc_handle_, ADC_CHANNEL_6, &adc_raw);
+    if (ret == ESP_OK && adc_raw > 0) {
+      // Преобразуем в напряжение (12-bit ADC, 0-4095)
+      adc_voltage = (adc_raw / 4095.0f) * reference_voltage_;
+      ESP_LOGV(TAG, "ADC raw: %d, voltage: %.3f V", adc_raw, adc_voltage);
+    } else {
+      ESP_LOGW(TAG, "Failed to read ADC: %s", esp_err_to_name(ret));
+    }
   } else {
-    ESP_LOGW(TAG, "Failed to read ADC value");
+    ESP_LOGW(TAG, "ADC handle not initialized");
   }
 #else
   // Для Arduino framework
   adc_voltage = analogRead(34) / 4095.0f * reference_voltage_;
 #endif
   
-  ESP_LOGV(TAG, "ADC raw voltage: %.3f V (raw: %d)", adc_voltage, adc_raw);
   return adc_voltage;
 }
 
