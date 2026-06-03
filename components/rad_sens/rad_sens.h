@@ -83,6 +83,14 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
     hv_generator_switch_ = sw;
     hv_generator_switch_->set_internal(true);
   }
+  void set_led_switch(switch_::Switch *sw) { 
+    led_switch_ = sw; 
+    led_switch_->set_internal(true);
+  }
+  void set_low_power_switch(switch_::Switch *sw) { 
+    low_power_switch_ = sw; 
+    low_power_switch_->set_internal(true);
+  }
   void set_sensitivity_number(number::Number *num) { 
     sensitivity_number_ = num;
     sensitivity_number_->set_internal(true);
@@ -90,6 +98,8 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   
   // Методы для управления
   void set_hv_generator(bool state);
+  void set_led(bool state);
+  void set_low_power(bool state);
   bool get_hv_generator_state();
   void set_sensitivity(uint16_t sensitivity);
   uint16_t get_sensitivity() const { return sensitivity_; }
@@ -105,6 +115,8 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   sensor::Sensor *pulses_sensor_{nullptr};
   binary_sensor::BinarySensor *hv_generator_state_sensor_{nullptr};
   switch_::Switch *hv_generator_switch_{nullptr};
+  switch_::Switch *led_switch_{nullptr};
+  switch_::Switch *low_power_switch_{nullptr};
   number::Number *sensitivity_number_{nullptr};
   
   uint8_t device_id_{0};
