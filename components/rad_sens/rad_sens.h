@@ -48,7 +48,8 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   void set_dynamic_intensity_sensor(sensor::Sensor *sensor) { dynamic_intensity_sensor_ = sensor; }
   void set_static_intensity_sensor(sensor::Sensor *sensor) { static_intensity_sensor_ = sensor; }
   void set_pulses_sensor(sensor::Sensor *sensor) { pulses_sensor_ = sensor; }
-  
+  void set_firmware_version_sensor(sensor::Sensor *sensor) { firmware_version_sensor_ = sensor; }
+
   // Binary Sensor
   void set_hv_generator_state_sensor(binary_sensor::BinarySensor *sensor) { hv_generator_state_sensor_ = sensor; }
   
@@ -79,7 +80,8 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   sensor::Sensor *dynamic_intensity_sensor_{nullptr};
   sensor::Sensor *static_intensity_sensor_{nullptr};
   sensor::Sensor *pulses_sensor_{nullptr};
-  
+  sensor::Sensor *firmware_version_sensor_{nullptr};
+
   // Binary Sensor
   binary_sensor::BinarySensor *hv_generator_state_sensor_{nullptr};
   
