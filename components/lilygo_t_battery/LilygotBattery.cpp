@@ -1,151 +1,189 @@
 #include "LilygotBattery.h"
 #include "esphome/core/log.h"
-#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace lilygo_t_battery {
 
-static const char *const TAG = "lilygo_t_battery";
+static const char *const TAG = "lilygo_battery";
 
 void LilygotBattery::setup() {
-  ESP_LOGI(TAG, "Initializing LilyGO T-Battery component");
+  ESP_LOGCONFIG(TAG, "Setting up Lilygo Battery Monitor...");
   
+  // Настройка пина включения
   if (enable_pin_ != nullptr) {
     enable_pin_->setup();
     enable_pin_->digital_write(false);
     ESP_LOGD(TAG, "Enable pin configured");
   }
   
-  if (adc_sensor_ == nullptr) {
-    ESP_LOGE(TAG, "No ADC sensor configured!");
+#ifdef USE_ESP32
+  // Инициализация ADC для ESP-IDF
+  adc_oneshot_unit_init_cfg_t init_config = {
+      .unit_id = ADC_UNIT_1,
+  };
+  ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adc_handle_));
+  
+  // Настройка канала ADC (GPIO34 = ADC1_CHANNEL_6)
+  adc_oneshot_chan_cfg_t config = {
+      .atten = ADC_ATTEN_DB_12,
+      .bitwidth = ADC_BITWIDTH_12,
+  };
+  ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle_, ADC_CHANNEL_6, &config));
+  
+  // Калибровка ADC
+  adc_cali_curve_fitting_config_t cali_config = {
+      .unit_id = ADC_UNIT_1,
+      .atten = ADC_ATTEN_DB_12,
+      .bitwidth = ADC_BITWIDTH_12,
+  };
+  esp_err_t ret = adc_cali_create_scheme_curve_fitting(&cali_config, &cali_handle_);
+  if (ret == ESP_OK) {
+    adc_initialized_ = true;
+    ESP_LOGD(TAG, "ADC calibration successful");
   } else {
-    ESP_LOGD(TAG, "ADC sensor configured");
+    ESP_LOGW(TAG, "ADC calibration failed");
   }
+#endif
+  
+  ESP_LOGCONFIG(TAG, "Setup complete");
+}
+
+float LilygotBattery::read_adc_voltage_() {
+  float adc_voltage = 0.0f;
+  
+  // Если есть внешний ADC сенсор, используем его
+  if (adc_sensor_ != nullptr && adc_sensor_->has_state()) {
+    adc_voltage = adc_sensor_->state;
+    ESP_LOGV(TAG, "ADC from sensor: %.3f V", adc_voltage);
+    return adc_voltage;
+  }
+  
+#ifdef USE_ESP32
+  // Прямое чтение ADC
+  if (adc_handle_ != nullptr) {
+    int adc_raw = 0;
+    esp_err_t ret = adc_oneshot_read(adc_handle_, ADC_CHANNEL_6, &adc_raw);
+    if (ret == ESP_OK) {
+      if (adc_initialized_ && cali_handle_ != nullptr) {
+        int voltage_mv = 0;
+        ret = adc_cali_raw_to_voltage(cali_handle_, adc_raw, &voltage_mv);
+        if (ret == ESP_OK) {
+          adc_voltage = voltage_mv / 1000.0f;
+        }
+      } else {
+        // Без калибровки
+        adc_voltage = (adc_raw / 4095.0f) * reference_voltage_;
+      }
+    }
+  }
+#else
+  // Для Arduino framework
+  adc_voltage = analogRead(34) / 4095.0f * reference_voltage_;
+#endif
+  
+  ESP_LOGV(TAG, "ADC raw voltage: %.3f V", adc_voltage);
+  return adc_voltage;
+}
+
+float LilygotBattery::calculate_usb_voltage_(float battery_voltage) {
+  // Если напряжение выше 4.5V, значит подключен USB
+  if (battery_voltage > 4.5f) {
+    return battery_voltage;
+  }
+  return 0.0f;
+}
+
+int LilygotBattery::calculate_battery_level_(float battery_voltage) {
+  // Типичные значения для LiPo аккумулятора
+  const float BATTERY_FULL = 4.2f;
+  const float BATTERY_EMPTY = 3.25f;
+  
+  // Если напряжение выше максимума
+  if (battery_voltage >= BATTERY_FULL) {
+    return 100;
+  }
+  
+  // Если напряжение ниже минимума
+  if (battery_voltage <= BATTERY_EMPTY) {
+    return 0;
+  }
+  
+  // Линейная интерполяция
+  int level = (int)((battery_voltage - BATTERY_EMPTY) / (BATTERY_FULL - BATTERY_EMPTY) * 100.0f);
+  
+  // Ограничиваем диапазон
+  return std::min(100, std::max(0, level));
 }
 
 void LilygotBattery::update() {
-  update_battery_info();
-}
-
-void LilygotBattery::update_battery_info() {
-  if (adc_sensor_ == nullptr || !adc_sensor_->has_state()) {
-    ESP_LOGW(TAG, "ADC sensor not available or has no state");
-    return;
-  }
+  ESP_LOGV(TAG, "Starting battery update...");
   
-  // Получаем напряжение от ADC сенсора
-  float adc_voltage = adc_sensor_->state;
-  
-  if (adc_voltage < 0.001f) {
-    ESP_LOGW(TAG, "ADC reading too low: %.3fV", adc_voltage);
-    return;
-  }
-  
-  ESP_LOGD(TAG, "Raw ADC voltage: %.3fV", adc_voltage);
-  
-  // Применяем коэффициент делителя напряжения
-  float measured_voltage = adc_voltage * voltage_divider_;
-  
-  // Определяем, идет ли зарядка
-  bool is_charging = (measured_voltage > 4.2f);
-  
-  float bus_voltage = 0.0f;
-  float battery_voltage = measured_voltage;
-  
-  // Логика для работы с дополнительной схемой измерения
-  if (!is_charging && enable_pin_ != nullptr) {
-    // Включаем схему измерения батареи
+  // Включаем пин для измерения (если нужен)
+  if (enable_pin_ != nullptr) {
     enable_pin_->digital_write(true);
-    delay(10); // Ждем стабилизации
-    
-    // Дополнительная задержка для обновления ADC
-    delay(50);
-    
-    // Читаем обновленное значение
-    if (adc_sensor_->has_state()) {
-      float new_adc_voltage = adc_sensor_->state;
-      if (new_adc_voltage > 0.001f) {
-        battery_voltage = new_adc_voltage * voltage_divider_;
-      }
+    delay(10);
+  }
+  
+  // Читаем напряжение с ADC
+  float adc_voltage = read_adc_voltage_();
+  
+  // Вычисляем реальное напряжение батареи с учетом делителя
+  float battery_voltage = adc_voltage * voltage_divider_;
+  
+  // Вычисляем напряжение USB (если подключен)
+  float usb_voltage = calculate_usb_voltage_(battery_voltage);
+  
+  // Корректируем напряжение батареи, если USB подключен
+  float corrected_battery_voltage = battery_voltage;
+  if (usb_voltage > 0) {
+    // Во время зарядки напряжение завышено, корректируем
+    corrected_battery_voltage = battery_voltage - 0.1f;
+    if (corrected_battery_voltage < 3.25f) {
+      corrected_battery_voltage = 3.25f;
     }
-    
-    // Выключаем схему
-    enable_pin_->digital_write(false);
-    
-    ESP_LOGD(TAG, "Battery mode - voltage: %.2fV", battery_voltage);
-  } else if (is_charging) {
-    // При зарядке USB напряжение доступно напрямую
-    bus_voltage = measured_voltage;
-    ESP_LOGD(TAG, "Charging mode - USB voltage: %.2fV", bus_voltage);
   }
   
-  // Рассчитываем уровень заряда
-  int battery_level = calculate_battery_level(battery_voltage, is_charging);
+  // Вычисляем уровень заряда
+  int battery_level = calculate_battery_level_(corrected_battery_voltage);
   
-  // Публикуем данные
-  if (bus_voltage_sensor_ != nullptr && bus_voltage > 0.1f) {
-    bus_voltage_sensor_->publish_state(bus_voltage);
-  }
+  // Логирование
+  ESP_LOGD(TAG, "=== Battery Status ===");
+  ESP_LOGD(TAG, "ADC Voltage: %.3f V", adc_voltage);
+  ESP_LOGD(TAG, "Battery Voltage: %.2f V", battery_voltage);
+  ESP_LOGD(TAG, "USB Voltage: %.2f V", usb_voltage);
+  ESP_LOGD(TAG, "Battery Level: %d %%", battery_level);
+  ESP_LOGD(TAG, "======================");
   
-  if (voltage_sensor_ != nullptr && battery_voltage > 0.1f) {
+  // Публикуем значения в сенсоры
+  if (voltage_sensor_ != nullptr) {
     voltage_sensor_->publish_state(battery_voltage);
   }
   
+  if (bus_voltage_sensor_ != nullptr) {
+    bus_voltage_sensor_->publish_state(usb_voltage);
+  }
+  
   if (battery_level_sensor_ != nullptr) {
-    battery_level_sensor_->publish_state(battery_level);
+    battery_level_sensor_->publish_state((float)battery_level);
   }
   
-  ESP_LOGD(TAG, "Final: Battery=%.2fV, Level=%d%%, Charging=%s", 
-           battery_voltage, battery_level, is_charging ? "Yes" : "No");
-}
-
-int LilygotBattery::calculate_battery_level(float voltage, bool is_charging) {
-  int level = 0;
-  
-  if (is_charging) {
-    // При зарядке: 4.2V = 0%, 4.35V = 100%
-    if (voltage >= 4.35f) {
-      level = 100;
-    } else if (voltage <= 4.2f) {
-      level = 0;
-    } else {
-      level = static_cast<int>(((voltage - 4.2f) / 0.15f) * 100.0f);
-    }
-  } else {
-    // При разряде: 3.3V = 0%, 4.2V = 100%
-    if (voltage >= 4.2f) {
-      level = 100;
-    } else if (voltage <= 3.3f) {
-      level = 0;
-    } else {
-      level = static_cast<int>(((voltage - 3.3f) / 0.9f) * 100.0f);
-    }
+  // Выключаем пин
+  if (enable_pin_ != nullptr) {
+    enable_pin_->digital_write(false);
   }
-  
-  // Ограничиваем значения
-  if (level > 100) level = 100;
-  if (level < 0) level = 0;
-  
-  return level;
 }
 
 void LilygotBattery::dump_config() {
-  ESP_LOGCONFIG(TAG, "LilyGO T-Battery:");
-  
-  if (enable_pin_ != nullptr) {
-    LOG_PIN("  Enable pin: ", enable_pin_);
-  }
-  
-  ESP_LOGCONFIG(TAG, "  Voltage divider ratio: %.2f", voltage_divider_);
+  ESP_LOGCONFIG(TAG, "Lilygo Battery Monitor:");
+  ESP_LOGCONFIG(TAG, "  Voltage Divider: %.1f", voltage_divider_);
+  ESP_LOGCONFIG(TAG, "  Reference Voltage: %.2f V", reference_voltage_);
   
   if (voltage_sensor_ != nullptr) {
     LOG_SENSOR("  ", "Battery Voltage", voltage_sensor_);
   }
-  
   if (bus_voltage_sensor_ != nullptr) {
-    LOG_SENSOR("  ", "Bus Voltage", bus_voltage_sensor_);
+    LOG_SENSOR("  ", "USB Voltage", bus_voltage_sensor_);
   }
-  
   if (battery_level_sensor_ != nullptr) {
     LOG_SENSOR("  ", "Battery Level", battery_level_sensor_);
   }
