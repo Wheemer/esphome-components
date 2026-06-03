@@ -12,7 +12,7 @@ CONFIG_SCHEMA = cv.Schema({
 })
 
 async def to_code(config):
-    parent = await cg.get_variable(config[CONF_ID])
+    parent = await cg.get_variable(config["id"])
     
     if "hv_generator_state" in config:
         bs = await binary_sensor.new_binary_sensor(config["hv_generator_state"])
