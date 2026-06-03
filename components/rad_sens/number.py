@@ -29,4 +29,3 @@ async def to_code(config):
             step=config["sensitivity"]["step"]
         )
         cg.add(parent.set_sensitivity_number(num))
-        cg.add(parent.set_sensitivity_number(num))
