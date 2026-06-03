@@ -51,14 +51,20 @@ RAD_SENS_PULSES_SCHEMA = sensor.sensor_schema(
     state_class=STATE_CLASS_MEASUREMENT,
 )
 
-# Схема для number (чувствительность)
-RAD_SENS_SENSITIVITY_NUMBER_SCHEMA = cv.Schema({
-    cv.Optional(CONF_MIN_VALUE, default=100): cv.float_,
-    cv.Optional(CONF_MAX_VALUE, default=1100): cv.float_,
-    cv.Optional(CONF_STEP, default=1): cv.float_,
-    cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="imp/µR"): cv.string_strict,
-    cv.Optional(CONF_ICON, default="mdi:tune"): cv.icon,
-}).extend(number.NUMBER_SCHEMA)
+# Схема для number (чувствительность) - используем базовую схему number
+def validate_number_config(config):
+    return config
+
+RAD_SENS_SENSITIVITY_NUMBER_SCHEMA = cv.All(
+    number.NUMBER_SCHEMA,
+    cv.Schema({
+        cv.Optional(CONF_MIN_VALUE, default=100): cv.float_,
+        cv.Optional(CONF_MAX_VALUE, default=1100): cv.float_,
+        cv.Optional(CONF_STEP, default=1): cv.float_,
+        cv.Optional(CONF_UNIT_OF_MEASUREMENT, default="imp/µR"): cv.string_strict,
+        cv.Optional(CONF_ICON, default="mdi:tune"): cv.icon,
+    }, extra=cv.ALLOW_EXTRA),
+)
 
 # Схема конфигурации
 CONFIG_SCHEMA = cv.Schema({
