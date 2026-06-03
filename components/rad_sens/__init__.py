@@ -4,7 +4,7 @@ from esphome.components import i2c
 from esphome.const import CONF_ID, CONF_ADDRESS, CONF_UPDATE_INTERVAL
 
 DEPENDENCIES = ['i2c']
-AUTO_LOAD = ['sensor', 'binary_sensor', 'switch']
+AUTO_LOAD = ['sensor', 'binary_sensor', 'switch', 'number']
 
 rad_sens_ns = cg.esphome_ns.namespace('rad_sens')
 RadSensComponent = rad_sens_ns.class_('RadSensComponent', i2c.I2CDevice, cg.Component)
