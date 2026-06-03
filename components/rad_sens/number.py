@@ -22,10 +22,20 @@ async def to_code(config):
     parent = await cg.get_variable(config[CONF_ID])
     
     if "sensitivity" in config:
-        num = await number.new_number(
-            config["sensitivity"],
-            min_value=config["sensitivity"]["min_value"],
-            max_value=config["sensitivity"]["max_value"],
-            step=config["sensitivity"]["step"]
-        )
-        cg.add(parent.set_sensitivity_number(num))
+        sens_config = config["sensitivity"]
+        
+        # Создаём переменную number
+        var = cg.new_Pvariable(sens_config[CONF_ID])
+        await number.register_number(var, sens_config)
+        
+        # Устанавливаем параметры
+        cg.add(var.set_min_value(sens_config["min_value"]))
+        cg.add(var.set_max_value(sens_config["max_value"]))
+        cg.add(var.set_step(sens_config["step"]))
+        
+        if "unit_of_measurement" in sens_config:
+            cg.add(var.set_unit_of_measurement(sens_config["unit_of_measurement"]))
+        if "icon" in sens_config:
+            cg.add(var.set_icon(sens_config["icon"]))
+        
+        cg.add(parent.set_sensitivity_number(var))
