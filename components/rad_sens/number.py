@@ -22,12 +22,11 @@ async def to_code(config):
     if "sensitivity" in config:
         sens_config = config["sensitivity"]
         
-        # Если нет ID, создаём его автоматически
-        if CONF_ID not in sens_config:
-            sens_config[CONF_ID] = cg.global_id("rad_sens_sensitivity")
+        # Создаём уникальное имя для переменной
+        var_name = "rad_sens_sensitivity"
         
-        # Создаём number через new_Pvariable
-        num = cg.new_Pvariable(sens_config[CONF_ID])
+        # Создаём переменную number
+        num = cg.new_Pvariable(var_name)
         
         # Регистрируем number
         await number.register_number(num, sens_config)
@@ -37,5 +36,4 @@ async def to_code(config):
         cg.add(num.set_max_value(sens_config["max_value"]))
         cg.add(num.set_step(sens_config["step"]))
         
-        # Устанавливаем callback для обновления чувствительности
         cg.add(parent.set_sensitivity_number(num))
