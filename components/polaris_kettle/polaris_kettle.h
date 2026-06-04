@@ -1,6 +1,6 @@
 #include "esphome.h"
-#include "esphome/components/water_heater/water_heater.h"
 #include "esphome/components/uart/uart.h"
+#include "esphome/components/water_heater/water_heater.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
@@ -10,12 +10,14 @@
 namespace esphome {
 namespace polaris_kettle {
 
-// ========== КНОПКИ ДЛЯ РЕЖИМОВ ЧАЯ ==========
+// ========== ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ ==========
+
+class PolarisKettle;
 
 class BlackTeaButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->black_tea(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -23,7 +25,7 @@ class BlackTeaButton : public button::Button, public Component {
 class MixTeaButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->mix_tea(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -31,7 +33,7 @@ class MixTeaButton : public button::Button, public Component {
 class WhiteTeaButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->white_tea(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -39,7 +41,7 @@ class WhiteTeaButton : public button::Button, public Component {
 class GreenTeaButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->green_tea(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -47,7 +49,7 @@ class GreenTeaButton : public button::Button, public Component {
 class OolongTeaButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->oolong_tea(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -55,7 +57,7 @@ class OolongTeaButton : public button::Button, public Component {
 class BagTeaButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->bag_tea(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -63,7 +65,7 @@ class BagTeaButton : public button::Button, public Component {
 class BoilButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->boil(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
@@ -71,43 +73,168 @@ class BoilButton : public button::Button, public Component {
 class KeepWarmButton : public button::Button, public Component {
  public:
   void set_parent(PolarisKettle *parent) { parent_ = parent; }
-  void press_action() override { parent_->keep_warm(); }
+  void press_action() override;
  protected:
   PolarisKettle *parent_;
 };
 
-// ========== ОСНОВНОЙ КОМПОНЕНТ ВОДОНАГРЕВАТЕЛЯ ==========
+// ========== ТЕКУЩАЯ ТЕМПЕРАТУРА (СЕНСОР) ==========
 
-class PolarisKettle : public water_heater::WaterHeater, public PollingComponent, public uart::UARTDevice {
+class PolarisCurrentTemperatureSensor : public sensor::Sensor, public Component {
  public:
-  PolarisKettle() : PollingComponent(1000) {}
+  void set_parent(PolarisKettle *parent) { parent_ = parent; }
+  void setup() override {}
+  void update() override {}
+  void loop() override {}
+ protected:
+  PolarisKettle *parent_;
+};
+
+// ========== УСТАНОВЛЕННАЯ ТЕМПЕРАТУРА (СЕНСОР) ==========
+
+class PolarisTargetTemperatureSensor : public sensor::Sensor, public Component {
+ public:
+  void set_parent(PolarisKettle *parent) { parent_ = parent; }
+  void setup() override {}
+  void update() override {}
+  void loop() override {}
+ protected:
+  PolarisKettle *parent_;
+};
+
+// ========== ТЕКУЩИЙ РЕЖИМ (TEXT SENSOR) ==========
+
+class PolarisModeTextSensor : public text_sensor::TextSensor, public Component {
+ public:
+  void set_parent(PolarisKettle *parent) { parent_ = parent; }
+  void setup() override {}
+  void update() override {}
+  void loop() override {}
+ protected:
+  PolarisKettle *parent_;
+};
+
+// ========== НЕТ ЧАЙНИКА (BINARY SENSOR) ==========
+
+class PolarisNoKettleBinarySensor : public binary_sensor::BinarySensor, public Component {
+ public:
+  void set_parent(PolarisKettle *parent) { parent_ = parent; }
+  void setup() override {}
+  void update() override {}
+  void loop() override {}
+ protected:
+  PolarisKettle *parent_;
+};
+
+// ========== НЕТ ВОДЫ (BINARY SENSOR) ==========
+
+class PolarisNoWaterBinarySensor : public binary_sensor::BinarySensor, public Component {
+ public:
+  void set_parent(PolarisKettle *parent) { parent_ = parent; }
+  void setup() override {}
+  void update() override {}
+  void loop() override {}
+ protected:
+  PolarisKettle *parent_;
+};
+
+// ========== ОСНОВНОЙ КОМПОНЕНТ ==========
+
+class PolarisKettle : public water_heater::WaterHeater, public Component, public uart::UARTDevice {
+ public:
+  PolarisKettle() = default;
   
   void set_uart_parent(uart::UARTComponent *parent) {
     this->parent_ = parent;
     this->set_uart(parent);
   }
   
-  // Связывание сенсоров
-  void set_current_temperature_sensor(sensor::Sensor *sensor) { current_temp_sensor_ = sensor; }
-  void set_target_temperature_sensor(sensor::Sensor *sensor) { target_temp_sensor_ = sensor; }
-  void set_mode_text_sensor(text_sensor::TextSensor *sensor) { mode_text_sensor_ = sensor; }
-  void set_no_kettle_binary_sensor(binary_sensor::BinarySensor *sensor) { no_kettle_sensor_ = sensor; }
-  void set_no_water_binary_sensor(binary_sensor::BinarySensor *sensor) { no_water_sensor_ = sensor; }
+  // Регистрация сенсоров
+  void register_current_temperature_sensor(PolarisCurrentTemperatureSensor *sensor) {
+    current_temp_sensor_ = sensor;
+  }
   
-  // Связывание кнопок
-  void set_black_tea_button(button::Button *button) { black_tea_button_ = button; }
-  void set_mix_tea_button(button::Button *button) { mix_tea_button_ = button; }
-  void set_white_tea_button(button::Button *button) { white_tea_button_ = button; }
-  void set_green_tea_button(button::Button *button) { green_tea_button_ = button; }
-  void set_oolong_tea_button(button::Button *button) { oolong_tea_button_ = button; }
-  void set_bag_tea_button(button::Button *button) { bag_tea_button_ = button; }
-  void set_boil_button(button::Button *button) { boil_button_ = button; }
-  void set_keep_warm_button(button::Button *button) { keep_warm_button_ = button; }
+  void register_target_temperature_sensor(PolarisTargetTemperatureSensor *sensor) {
+    target_temp_sensor_ = sensor;
+  }
   
+  void register_mode_text_sensor(PolarisModeTextSensor *sensor) {
+    mode_text_sensor_ = sensor;
+  }
+  
+  void register_no_kettle_binary_sensor(PolarisNoKettleBinarySensor *sensor) {
+    no_kettle_sensor_ = sensor;
+  }
+  
+  void register_no_water_binary_sensor(PolarisNoWaterBinarySensor *sensor) {
+    no_water_sensor_ = sensor;
+  }
+  
+  // Регистрация кнопок
+  void register_black_tea_button(BlackTeaButton *button) {
+    black_tea_button_ = button;
+    black_tea_button_->set_parent(this);
+  }
+  
+  void register_mix_tea_button(MixTeaButton *button) {
+    mix_tea_button_ = button;
+    mix_tea_button_->set_parent(this);
+  }
+  
+  void register_white_tea_button(WhiteTeaButton *button) {
+    white_tea_button_ = button;
+    white_tea_button_->set_parent(this);
+  }
+  
+  void register_green_tea_button(GreenTeaButton *button) {
+    green_tea_button_ = button;
+    green_tea_button_->set_parent(this);
+  }
+  
+  void register_oolong_tea_button(OolongTeaButton *button) {
+    oolong_tea_button_ = button;
+    oolong_tea_button_->set_parent(this);
+  }
+  
+  void register_bag_tea_button(BagTeaButton *button) {
+    bag_tea_button_ = button;
+    bag_tea_button_->set_parent(this);
+  }
+  
+  void register_boil_button(BoilButton *button) {
+    boil_button_ = button;
+    boil_button_->set_parent(this);
+  }
+  
+  void register_keep_warm_button(KeepWarmButton *button) {
+    keep_warm_button_ = button;
+    keep_warm_button_->set_parent(this);
+  }
+  
+  // Геттеры для сенсоров
+  float get_current_temperature() const { return current_temp_; }
+  float get_target_temperature() const { return target_temperature; }
+  bool get_no_kettle() const { return no_kettle_; }
+  bool get_no_water() const { return no_water_; }
+  std::string get_mode_text() const { return mode_text_; }
+  
+  // Команды для чайной церемонии
+  void black_tea() { send_preset(95, 0x3D); }
+  void mix_tea()   { send_preset(40, 0x3B); }
+  void white_tea() { send_preset(65, 0x3C); }
+  void green_tea() { send_preset(80, 0x7C); }
+  void oolong_tea(){ send_preset(90, 0x7D); }
+  void bag_tea()   { send_preset(100, 0x7E); }
+  void boil()      { send_preset(100, 0x3B); }
+  void keep_warm() { send_preset(40, 0x63); }
+  void turn_on()   { send_power(0x00, 0x01, 70, 0x3C); }
+  void turn_off()  { send_power(0x00, 0x00, 0x00, 0x00); }
+  void set_temperature(float temp) { send_target_temperature((uint8_t)temp); }
+  
+  // Жизненный цикл
   void setup() override {
     ESP_LOGI("polaris", "Polaris Kettle Component Started");
     
-    // Настройка возможностей водонагревателя
     this->traits_.set_supports_current_temperature(true);
     this->traits_.set_supports_target_temperature(true);
     this->traits_.set_supports_away_mode(false);
@@ -128,7 +255,6 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
       this->read_byte(&data);
       buffer_.push_back(data);
       
-      // Ищем префикс 0x81
       if (buffer_.size() == 1 && buffer_[0] != 0x81) {
         buffer_.clear();
         continue;
@@ -139,11 +265,6 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
         buffer_.clear();
       }
     }
-  }
-  
-  void update() override {
-    // Периодический запрос состояния
-    send_command(0x00, 0x00, 0x00, 0x00, 0x00);
   }
   
   void control(const water_heater::WaterHeaterCall &call) override {
@@ -174,43 +295,29 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
     if (target_temp_sensor_) target_temp_sensor_->publish_state(this->target_temperature);
     this->water_heater::WaterHeater::publish_state();
   }
-  
-  // ========== ПУБЛИЧНЫЕ МЕТОДЫ ДЛЯ КНОПОК ==========
-  void black_tea() { send_preset(95, 0x3D); }      // черный чай / кофе / пауэр 95
-  void mix_tea()   { send_preset(40, 0x3B); }      // смесь 40
-  void white_tea() { send_preset(65, 0x3C); }      // белый 65
-  void green_tea() { send_preset(80, 0x7C); }      // зеленый цветочный 80
-  void oolong_tea(){ send_preset(90, 0x7D); }      // красный улун травяной 90
-  void bag_tea()   { send_preset(100, 0x7E); }     // пакетированный 100
-  void boil()      { send_preset(100, 0x3B); }     // кипячение
-  void keep_warm() { send_preset(40, 0x63); }      // разогрев с удержанием
-  void turn_on()   { send_power(0x00, 0x01, 70, 0x3C); }
-  void turn_off()  { send_power(0x00, 0x00, 0x00, 0x00); }
-  void set_temperature(float temp) { send_target_temperature((uint8_t)temp); }
 
  protected:
   uart::UARTComponent *parent_{nullptr};
   std::vector<uint8_t> buffer_;
   float current_temp_ = 0.0;
-  bool has_error_ = false;
+  bool no_kettle_ = false;
   bool no_water_ = false;
+  std::string mode_text_ = "Выключен";
   
-  // Сенсоры
-  sensor::Sensor *current_temp_sensor_{nullptr};
-  sensor::Sensor *target_temp_sensor_{nullptr};
-  text_sensor::TextSensor *mode_text_sensor_{nullptr};
-  binary_sensor::BinarySensor *no_kettle_sensor_{nullptr};
-  binary_sensor::BinarySensor *no_water_sensor_{nullptr};
+  PolarisCurrentTemperatureSensor *current_temp_sensor_{nullptr};
+  PolarisTargetTemperatureSensor *target_temp_sensor_{nullptr};
+  PolarisModeTextSensor *mode_text_sensor_{nullptr};
+  PolarisNoKettleBinarySensor *no_kettle_sensor_{nullptr};
+  PolarisNoWaterBinarySensor *no_water_sensor_{nullptr};
   
-  // Кнопки
-  button::Button *black_tea_button_{nullptr};
-  button::Button *mix_tea_button_{nullptr};
-  button::Button *white_tea_button_{nullptr};
-  button::Button *green_tea_button_{nullptr};
-  button::Button *oolong_tea_button_{nullptr};
-  button::Button *bag_tea_button_{nullptr};
-  button::Button *boil_button_{nullptr};
-  button::Button *keep_warm_button_{nullptr};
+  BlackTeaButton *black_tea_button_{nullptr};
+  MixTeaButton *mix_tea_button_{nullptr};
+  WhiteTeaButton *white_tea_button_{nullptr};
+  GreenTeaButton *green_tea_button_{nullptr};
+  OolongTeaButton *oolong_tea_button_{nullptr};
+  BagTeaButton *bag_tea_button_{nullptr};
+  BoilButton *boil_button_{nullptr};
+  KeepWarmButton *keep_warm_button_{nullptr};
   
   void process_frame() {
     if (buffer_.size() < 8) return;
@@ -218,7 +325,6 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
     
     if (frame[0] != 0x81) return;
     
-    // Проверка контрольной суммы
     uint16_t calc_sum = 0;
     for (int i = 0; i < 6; i++) calc_sum += frame[i];
     uint16_t recv_sum = (frame[6] << 8) | frame[7];
@@ -236,56 +342,49 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
     current_temp_ = (float)current_temp;
     this->target_temperature = (float)target_temp;
     
-    // Обновляем сенсоры
     if (current_temp_sensor_) current_temp_sensor_->publish_state(current_temp_);
     if (target_temp_sensor_) target_temp_sensor_->publish_state(this->target_temperature);
     
-    // Обработка ошибок
     if (status == 0xFF) {
-      has_error_ = true;
-      if (frame[3] == 0x64 && frame[4] == 0x55) {
-        no_water_ = true;
-        ESP_LOGW("polaris", "НЕТ ВОДЫ!");
-        if (no_water_sensor_) no_water_sensor_->publish_state(true);
-        if (no_kettle_sensor_) no_kettle_sensor_->publish_state(false);
-      } else {
-        ESP_LOGW("polaris", "НЕТ ЧАЙНИКА!");
-        if (no_kettle_sensor_) no_kettle_sensor_->publish_state(true);
-        if (no_water_sensor_) no_water_sensor_->publish_state(false);
-      }
+      no_kettle_ = true;
+      no_water_ = (frame[3] == 0x64 && frame[4] == 0x55);
+      
+      if (no_kettle_sensor_) no_kettle_sensor_->publish_state(no_kettle_);
+      if (no_water_sensor_) no_water_sensor_->publish_state(no_water_);
+      
+      mode_text_ = no_water_ ? "Нет воды" : "Нет чайника";
       this->mode = water_heater::WATER_HEATER_MODE_OFF;
-      if (mode_text_sensor_) mode_text_sensor_->publish_state("Ошибка");
     } else {
-      has_error_ = false;
+      no_kettle_ = false;
       no_water_ = false;
+      
       if (no_kettle_sensor_) no_kettle_sensor_->publish_state(false);
       if (no_water_sensor_) no_water_sensor_->publish_state(false);
       
-      // Определяем режим
       if (mode == 0x00) {
         this->mode = water_heater::WATER_HEATER_MODE_OFF;
-        if (mode_text_sensor_) mode_text_sensor_->publish_state("Выключен");
+        mode_text_ = "Выключен";
       } else if (mode == 0x01) {
         if (frame[4] == 0x3B || frame[4] == 0x7B) {
           this->mode = water_heater::WATER_HEATER_MODE_PERFORMANCE;
-          if (mode_text_sensor_) mode_text_sensor_->publish_state("Кипячение");
+          mode_text_ = "Кипячение";
         } else if (frame[4] == 0x63 || frame[4] == 0x3C || frame[4] == 0x3D) {
           this->mode = water_heater::WATER_HEATER_MODE_ECO;
-          if (mode_text_sensor_) mode_text_sensor_->publish_state("Подогрев");
+          mode_text_ = "Подогрев";
         } else {
           this->mode = water_heater::WATER_HEATER_MODE_GAS;
-          if (mode_text_sensor_) mode_text_sensor_->publish_state("Чайная церемония");
+          mode_text_ = "Чайная церемония";
         }
       } else {
         this->mode = water_heater::WATER_HEATER_MODE_GAS;
-        if (mode_text_sensor_) mode_text_sensor_->publish_state("Чайная церемония");
+        mode_text_ = "Чайная церемония";
       }
     }
     
+    if (mode_text_sensor_) mode_text_sensor_->publish_state(mode_text_);
     this->publish_state();
     
-    ESP_LOGD("polaris", "Tекущая: %.1f°C | Целевая: %.1f°C | Режим: %d",
-             current_temp_, this->target_temperature, this->mode);
+    ESP_LOGD("polaris", "T: %.1f°C / %.1f°C | %s", current_temp_, this->target_temperature, mode_text_.c_str());
   }
   
   uint16_t calculate_checksum(uint8_t *data, int len) {
@@ -294,9 +393,8 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
     return sum;
   }
   
-  void send_command(uint8_t byte1, uint8_t byte2, uint8_t byte3, 
-                    uint8_t byte4, uint8_t byte5) {
-    uint8_t cmd[8] = {0x81, byte1, byte2, byte3, byte4, byte5, 0x00, 0x00};
+  void send_command(uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4, uint8_t b5) {
+    uint8_t cmd[8] = {0x81, b1, b2, b3, b4, b5, 0x00, 0x00};
     uint16_t sum = calculate_checksum(cmd, 6);
     cmd[6] = (sum >> 8) & 0xFF;
     cmd[7] = sum & 0xFF;
@@ -305,16 +403,14 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
   
   void send_preset(uint8_t temp, uint8_t mode_byte) {
     send_command(0x00, 0x01, temp, mode_byte, 0x00);
-    ESP_LOGI("polaris", "Команда: температура=%d°C, режим=0x%02X", temp, mode_byte);
   }
   
-  void send_power(uint8_t status, uint8_t mode, uint8_t temp, uint8_t flag) {
-    send_command(status, mode, temp, flag, 0x00);
+  void send_power(uint8_t s, uint8_t m, uint8_t t, uint8_t f) {
+    send_command(s, m, t, f, 0x00);
   }
   
   void send_target_temperature(uint8_t temp) {
     send_command(0x00, 0x01, temp, 0x3C, 0x00);
-    ESP_LOGI("polaris", "Установка температуры: %d°C", temp);
   }
   
   void send_mode(water_heater::WaterHeaterMode mode) {
@@ -335,5 +431,18 @@ class PolarisKettle : public water_heater::WaterHeater, public PollingComponent,
   }
 };
 
+// ========== РЕАЛИЗАЦИЯ МЕТОДОВ КНОПОК ==========
+
+void BlackTeaButton::press_action() { if (parent_) parent_->black_tea(); }
+void MixTeaButton::press_action() { if (parent_) parent_->mix_tea(); }
+void WhiteTeaButton::press_action() { if (parent_) parent_->white_tea(); }
+void GreenTeaButton::press_action() { if (parent_) parent_->green_tea(); }
+void OolongTeaButton::press_action() { if (parent_) parent_->oolong_tea(); }
+void BagTeaButton::press_action() { if (parent_) parent_->bag_tea(); }
+void BoilButton::press_action() { if (parent_) parent_->boil(); }
+void KeepWarmButton::press_action() { if (parent_) parent_->keep_warm(); }
+
+}  // namespace polaris_kettle
+}  // namespace esphome
 }  // namespace polaris_kettle
 }  // namespace esphome
