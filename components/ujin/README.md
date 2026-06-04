@@ -1,9 +1,6 @@
 # Основной конфиг ESPHome
-esphome:
-  name: dimmer-controller
-  platform: ESP32
-  board: esp32dev
 
+``` yaml
 uart:
   id: uart_0
   tx_pin: GPIO17
@@ -95,6 +92,7 @@ select:
     name: "Режим диммирования"
     select_type: dimming_mode
     ujin_id: ujin_dimmer
+```
     
   - platform: ujin
     name: "Чувствительность сенсора"
