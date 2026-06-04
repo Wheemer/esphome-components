@@ -92,9 +92,11 @@ select:
     name: "Режим диммирования"
     select_type: dimming_mode
     ujin_id: ujin_dimmer
-```
+
     
   - platform: ujin
     name: "Чувствительность сенсора"
     select_type: touch_sensitivity
     ujin_id: ujin_dimmer
+
+```
