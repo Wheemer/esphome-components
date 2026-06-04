@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import switch
-from esphome.const import CONF_ID, CONF_NAME
+from esphome.const import CONF_ID
 from . import ujin_ns, UjinComponent, CONF_UJIN_ID
 
 UjinSwitch = ujin_ns.class_("UjinSwitch", switch.Switch, cg.Component)
