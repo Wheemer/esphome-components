@@ -20,20 +20,18 @@ void RadSensComponent::setup() {
   
   this->device_id_ = test_read;
   this->firmware_version_ = this->read_register_8_(REG_FIRMWARE_VER);
-  if (this->firmware_version_sensor_ != nullptr) {
-      this->firmware_version_sensor_->publish_state(this->firmware_version_);
-  }
+  
   ESP_LOGCONFIG(TAG, "  Device ID: 0x%02X", this->device_id_);
   ESP_LOGCONFIG(TAG, "  Firmware Version: %d", this->firmware_version_);
   
   // Читаем текущую чувствительность
-  this->sensitivity_ = this->read_register_16_(REG_SENSITIVITY);
+  this->sensitivity_ = this->read_register_16_(REG_CONTROL_SENSITIVITY);
   ESP_LOGCONFIG(TAG, "  Current Sensitivity: %d imp/µR", this->sensitivity_);
   
   // Читаем состояния
   this->hv_generator_state_ = this->get_hv_generator_state();
-  this->led_state_ = this->read_register_8_(REG_LED_CONTROL) > 0;
-  this->low_power_state_ = this->read_register_8_(REG_LOW_POWER_CONTROL) > 0;
+  this->led_state_ = this->read_register_8_(REG_CONTROL_LED) > 0;
+  this->low_power_state_ = this->read_register_8_(REG_CONTROL_LOW_POWER) > 0;
   
   ESP_LOGCONFIG(TAG, "  HV Generator: %s", this->hv_generator_state_ ? "ON" : "OFF");
   ESP_LOGCONFIG(TAG, "  LED: %s", this->led_state_ ? "ON" : "OFF");
@@ -58,6 +56,11 @@ void RadSensComponent::setup() {
   // Публикуем начальное состояние для binary sensor
   if (this->hv_generator_state_sensor_ != nullptr) {
     this->hv_generator_state_sensor_->publish_state(this->hv_generator_state_);
+  }
+  
+  // Публикуем версию прошивки
+  if (this->firmware_version_sensor_ != nullptr) {
+    this->firmware_version_sensor_->publish_state(this->firmware_version_);
   }
   
   this->initialized_ = true;
@@ -110,7 +113,7 @@ void RadSensComponent::update_sensors_() {
   }
   
   // Обновление состояния LED
-  uint8_t led_reg = this->read_register_8_(REG_LED_CONTROL);
+  uint8_t led_reg = this->read_register_8_(REG_CONTROL_LED);
   bool new_led_state = (led_reg > 0);
   if (new_led_state != this->led_state_) {
     this->led_state_ = new_led_state;
@@ -121,7 +124,7 @@ void RadSensComponent::update_sensors_() {
   }
   
   // Обновление состояния Low Power
-  uint8_t lpm_reg = this->read_register_8_(REG_LOW_POWER_CONTROL);
+  uint8_t lpm_reg = this->read_register_8_(REG_CONTROL_LOW_POWER);
   bool new_lpm_state = (lpm_reg > 0);
   if (new_lpm_state != this->low_power_state_) {
     this->low_power_state_ = new_lpm_state;
@@ -132,7 +135,7 @@ void RadSensComponent::update_sensors_() {
   }
   
   // Обновление чувствительности
-  uint16_t new_sensitivity = this->read_register_16_(REG_SENSITIVITY);
+  uint16_t new_sensitivity = this->read_register_16_(REG_CONTROL_SENSITIVITY);
   if (new_sensitivity != this->sensitivity_) {
     this->sensitivity_ = new_sensitivity;
     if (this->sensitivity_number_ != nullptr) {
@@ -141,25 +144,32 @@ void RadSensComponent::update_sensors_() {
     ESP_LOGD(TAG, "Sensitivity changed to: %d imp/µR", this->sensitivity_);
   }
   
-  // Чтение датчиков
-  uint16_t dyn_raw = this->read_register_16_(REG_DYNAMIC_INTENSITY_LOW);
+  // Чтение динамической интенсивности (24 бита)
+  uint32_t dyn_raw = this->read_register_24_(REG_DYNAMIC_INTENSITY);
   float dynamic_intensity = dyn_raw * 0.1f;
   if (this->dynamic_intensity_sensor_ != nullptr) {
     this->dynamic_intensity_sensor_->publish_state(dynamic_intensity);
   }
   
-  uint16_t stat_raw = this->read_register_16_(REG_STATIC_INTENSITY_LOW);
+  // Чтение статической интенсивности (24 бита)
+  uint32_t stat_raw = this->read_register_24_(REG_STATIC_INTENSITY);
   float static_intensity = stat_raw * 0.1f;
   if (this->static_intensity_sensor_ != nullptr) {
     this->static_intensity_sensor_->publish_state(static_intensity);
   }
   
-  uint32_t pulses = this->read_register_32_(REG_PULSE_COUNT_LOW);
+  // Чтение счетчика импульсов (16 бит)
+  uint16_t pulses = this->read_register_16_(REG_PULSE_COUNTER);
   if (this->pulses_sensor_ != nullptr) {
     this->pulses_sensor_->publish_state(pulses);
   }
   
-  ESP_LOGD(TAG, "Dynamic: %.1f µR/h, Static: %.1f µR/h, Pulses: %lu, HV: %s, LED: %s, LP: %s, Sens: %d",
+  // Обновление версии прошивки
+  if (this->firmware_version_sensor_ != nullptr) {
+    this->firmware_version_sensor_->publish_state(this->firmware_version_);
+  }
+  
+  ESP_LOGD(TAG, "Dynamic: %.1f µR/h, Static: %.1f µR/h, Pulses: %u, HV: %s, LED: %s, LP: %s, Sens: %d",
            dynamic_intensity, static_intensity, pulses,
            this->hv_generator_state_ ? "ON" : "OFF",
            this->led_state_ ? "ON" : "OFF",
@@ -169,7 +179,7 @@ void RadSensComponent::update_sensors_() {
 
 void RadSensComponent::set_hv_generator(bool state) {
   uint8_t value = state ? HV_GENERATOR_ON : HV_GENERATOR_OFF;
-  if (this->write_register_8_(REG_HV_GENERATOR_CONTROL, value)) {
+  if (this->write_register_8_(REG_CONTROL_HV, value)) {
     this->hv_generator_state_ = state;
     ESP_LOGI(TAG, "HV Generator set to: %s", state ? "ON" : "OFF");
   } else {
@@ -178,13 +188,13 @@ void RadSensComponent::set_hv_generator(bool state) {
 }
 
 bool RadSensComponent::get_hv_generator_state() {
-  uint8_t state = this->read_register_8_(REG_HV_GENERATOR_STATE);
+  uint8_t state = this->read_register_8_(REG_CONTROL_HV);
   return (state > 0);
 }
 
 void RadSensComponent::set_led(bool state) {
   uint8_t value = state ? LED_ON : LED_OFF;
-  if (this->write_register_8_(REG_LED_CONTROL, value)) {
+  if (this->write_register_8_(REG_CONTROL_LED, value)) {
     this->led_state_ = state;
     ESP_LOGI(TAG, "LED set to: %s", state ? "ON" : "OFF");
   } else {
@@ -193,13 +203,13 @@ void RadSensComponent::set_led(bool state) {
 }
 
 bool RadSensComponent::get_led_state() {
-  uint8_t state = this->read_register_8_(REG_LED_CONTROL);
+  uint8_t state = this->read_register_8_(REG_CONTROL_LED);
   return (state > 0);
 }
 
 void RadSensComponent::set_low_power(bool state) {
   uint8_t value = state ? LOW_POWER_ON : LOW_POWER_OFF;
-  if (this->write_register_8_(REG_LOW_POWER_CONTROL, value)) {
+  if (this->write_register_8_(REG_CONTROL_LOW_POWER, value)) {
     this->low_power_state_ = state;
     ESP_LOGI(TAG, "Low Power mode set to: %s", state ? "ON" : "OFF");
   } else {
@@ -208,7 +218,7 @@ void RadSensComponent::set_low_power(bool state) {
 }
 
 bool RadSensComponent::get_low_power_state() {
-  uint8_t state = this->read_register_8_(REG_LOW_POWER_CONTROL);
+  uint8_t state = this->read_register_8_(REG_CONTROL_LOW_POWER);
   return (state > 0);
 }
 
@@ -218,7 +228,7 @@ void RadSensComponent::set_sensitivity(uint16_t sensitivity) {
     return;
   }
   
-  if (this->write_register_16_(REG_SENSITIVITY, sensitivity)) {
+  if (this->write_register_16_(REG_CONTROL_SENSITIVITY, sensitivity)) {
     this->sensitivity_ = sensitivity;
     ESP_LOGI(TAG, "Sensitivity set to: %d imp/µR", sensitivity);
   } else {
@@ -238,6 +248,14 @@ uint16_t RadSensComponent::read_register_16_(uint8_t reg) {
   uint8_t data[2] = {0, 0};
   if (this->read_bytes(reg, data, 2)) {
     return (uint16_t(data[1]) << 8) | data[0];
+  }
+  return 0;
+}
+
+uint32_t RadSensComponent::read_register_24_(uint8_t reg) {
+  uint8_t data[3] = {0, 0, 0};
+  if (this->read_bytes(reg, data, 3)) {
+    return (uint32_t(data[0]) << 16) | (uint32_t(data[1]) << 8) | data[2];
   }
   return 0;
 }
