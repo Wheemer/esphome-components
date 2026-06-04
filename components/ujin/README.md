@@ -99,4 +99,57 @@ select:
     select_type: touch_sensitivity
     ujin_id: ujin_dimmer
 
+binary_sensor:
+  - platform: ujin
+    name: "Внешний вход 1"
+    input_type: external_input_1
+    input_number: 1
+    ujin_id: ujin_dimmer
+    device_class: connectivity
+    
+  - platform: ujin
+    name: "Внешний вход 2"
+    input_type: external_input_2
+    input_number: 2
+    ujin_id: ujin_dimmer
+    device_class: connectivity
+    
+  - platform: ujin
+    name: "Любой внешний вход"
+    input_type: any_external_input
+    ujin_id: ujin_dimmer
+    device_class: connectivity
+    
+  - platform: ujin
+    name: "Диммирование канала 1"
+    input_type: dimmer1_enabled
+    ujin_id: ujin_dimmer
+    device_class: power
+    entity_category: diagnostic
+    
+  - platform: ujin
+    name: "Диммирование канала 2"
+    input_type: dimmer2_enabled
+    ujin_id: ujin_dimmer
+    device_class: power
+    entity_category: diagnostic
+    
+  - platform: ujin
+    name: "Канал 1 включен"
+    input_type: channel1_on
+    ujin_id: ujin_dimmer
+    device_class: light
+    
+  - platform: ujin
+    name: "Канал 2 включен"
+    input_type: channel2_on
+    ujin_id: ujin_dimmer
+    device_class: light
+    
+  - platform: ujin
+    name: "Только фаза"
+    input_type: power_phase_only
+    ujin_id: ujin_dimmer
+    device_class: power
+    entity_category: diagnostic
 ```
