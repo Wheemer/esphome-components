@@ -10,23 +10,18 @@
 namespace esphome {
 namespace rad_sens {
 
-// Адреса регистров RadSens
+// Адреса регистров RadSens (правильные)
 static const uint8_t REG_DEVICE_ID = 0x00;
 static const uint8_t REG_FIRMWARE_VER = 0x01;
-static const uint8_t REG_HV_GENERATOR_STATE = 0x03;
-static const uint8_t REG_HV_GENERATOR_CONTROL = 0x04;
-static const uint8_t REG_SENSITIVITY = 0x10;
-static const uint8_t REG_LED_CONTROL = 0x05;
-static const uint8_t REG_LOW_POWER_CONTROL = 0x06;
-static const uint8_t REG_DYNAMIC_INTENSITY_LOW = 0x24;
-static const uint8_t REG_DYNAMIC_INTENSITY_HIGH = 0x25;
-static const uint8_t REG_STATIC_INTENSITY_LOW = 0x26;
-static const uint8_t REG_STATIC_INTENSITY_HIGH = 0x27;
-static const uint8_t REG_PULSE_COUNT_LOW = 0x28;
-static const uint8_t REG_PULSE_COUNT_HIGH = 0x29;
-static const uint8_t REG_PULSE_COUNT_2 = 0x2A;
-static const uint8_t REG_PULSE_COUNT_3 = 0x2B;
+static const uint8_t REG_DYNAMIC_INTENSITY = 0x03;        // 24-bit динамическая интенсивность
+static const uint8_t REG_STATIC_INTENSITY = 0x06;         // 24-bit статическая интенсивность
+static const uint8_t REG_PULSE_COUNTER = 0x09;            // 16-bit счетчик импульсов
+static const uint8_t REG_CONTROL_HV = 0x11;               // Управление HV генератором
+static const uint8_t REG_CONTROL_SENSITIVITY = 0x12;      // Чувствительность (16-bit little-endian)
+static const uint8_t REG_CONTROL_LED = 0x14;              // Управление LED
+static const uint8_t REG_CONTROL_LOW_POWER = 0x0C;        // Режим низкого потребления
 
+// Значения для управления
 static const uint8_t HV_GENERATOR_ON = 0x01;
 static const uint8_t HV_GENERATOR_OFF = 0x00;
 static const uint8_t LED_ON = 0x01;
@@ -49,7 +44,7 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   void set_static_intensity_sensor(sensor::Sensor *sensor) { static_intensity_sensor_ = sensor; }
   void set_pulses_sensor(sensor::Sensor *sensor) { pulses_sensor_ = sensor; }
   void set_firmware_version_sensor(sensor::Sensor *sensor) { firmware_version_sensor_ = sensor; }
-
+  
   // Binary Sensor
   void set_hv_generator_state_sensor(binary_sensor::BinarySensor *sensor) { hv_generator_state_sensor_ = sensor; }
   
@@ -81,7 +76,7 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   sensor::Sensor *static_intensity_sensor_{nullptr};
   sensor::Sensor *pulses_sensor_{nullptr};
   sensor::Sensor *firmware_version_sensor_{nullptr};
-
+  
   // Binary Sensor
   binary_sensor::BinarySensor *hv_generator_state_sensor_{nullptr};
   
@@ -106,6 +101,7 @@ class RadSensComponent : public Component, public i2c::I2CDevice {
   // I2C методы
   uint8_t read_register_8_(uint8_t reg);
   uint16_t read_register_16_(uint8_t reg);
+  uint32_t read_register_24_(uint8_t reg);
   uint32_t read_register_32_(uint8_t reg);
   bool write_register_8_(uint8_t reg, uint8_t value);
   bool write_register_16_(uint8_t reg, uint16_t value);
