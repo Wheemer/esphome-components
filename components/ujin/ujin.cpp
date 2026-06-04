@@ -9,9 +9,7 @@ static const char *const TAG = "ujin";
 void UjinComponent::setup() {
     ESP_LOGCONFIG(TAG, "Setting up Ujin Dimmer Component...");
     rx_buffer_.reserve(MAX_RX_SIZE);
-    
-    // Загружаем конфигурацию
-    load_configuration();
+    request_config();
 }
 
 uint8_t UjinComponent::calculate_crc(const std::vector<uint8_t> &data) {
@@ -40,20 +38,16 @@ void UjinComponent::send_command(const std::vector<uint8_t> &command) {
     uart_->write_array(command.data(), command.size());
 }
 
-void UjinComponent::set_channel_brightness(uint8_t channel, uint8_t brightness) {
+void UjinComponent::set_channel_brightness(uint8_t channel, uint8_t brightness_percent) {
     if (channel < 1 || channel > 2) return;
+    if (brightness_percent > 100) brightness_percent = 100;
     
     std::vector<uint8_t> message = {0xC8, 0x07};
-    
-    if (channel == 1) {
-        message.push_back(0x30);
-    } else if (channel == 2) {
-        message.push_back(0x32);
-    }
-    
+    uint8_t cmd = (channel == 1) ? 0x30 : 0x32;
+    message.push_back(cmd);
     message.push_back(0x02);
     message.push_back(0x00);
-    message.push_back(brightness);
+    message.push_back(brightness_percent);
     
     uint8_t crc = calculate_crc(message);
     message.push_back(crc);
@@ -61,77 +55,85 @@ void UjinComponent::set_channel_brightness(uint8_t channel, uint8_t brightness) 
     send_command(message);
     
     if (channel == 1) {
-        state_.channel1_brightness = brightness;
-        state_.channel1_on = (brightness > 0);
+        state_.channel1_brightness = brightness_percent;
+        state_.channel1_on = (brightness_percent > 0);
     } else {
-        state_.channel2_brightness = brightness;
-        state_.channel2_on = (brightness > 0);
+        state_.channel2_brightness = brightness_percent;
+        state_.channel2_on = (brightness_percent > 0);
     }
     
-    if (state_callback_) {
-        state_callback_->trigger(state_);
-    }
+    update_binary_sensors();
+    state_callback_->trigger(state_);
+}
+
+void UjinComponent::set_both_brightness(uint8_t brightness_percent) {
+    if (brightness_percent > 100) brightness_percent = 100;
+    
+    std::vector<uint8_t> message = {0xC8, 0x07, 0x33, 0x02, 0x00, brightness_percent};
+    uint8_t crc = calculate_crc(message);
+    message.push_back(crc);
+    
+    send_command(message);
+    
+    state_.channel1_brightness = brightness_percent;
+    state_.channel2_brightness = brightness_percent;
+    state_.channel1_on = (brightness_percent > 0);
+    state_.channel2_on = (brightness_percent > 0);
+    
+    update_binary_sensors();
+    state_callback_->trigger(state_);
 }
 
 void UjinComponent::set_channel_on(uint8_t channel) {
-    set_channel_brightness(channel, 0x64);
+    set_channel_brightness(channel, 100);
 }
 
 void UjinComponent::set_channel_off(uint8_t channel) {
-    set_channel_brightness(channel, 0x00);
+    set_channel_brightness(channel, 0);
 }
 
 void UjinComponent::toggle_channel(uint8_t channel) {
     if (channel == 1) {
-        set_channel_brightness(1, state_.channel1_on ? 0x00 : 0x64);
+        set_channel_brightness(1, state_.channel1_on ? 0 : 100);
     } else if (channel == 2) {
-        set_channel_brightness(2, state_.channel2_on ? 0x00 : 0x64);
+        set_channel_brightness(2, state_.channel2_on ? 0 : 100);
     }
 }
 
-void UjinComponent::beep(bool long_beep) {
+void UjinComponent::beep_short() {
+    beep_custom(0xFA);
+}
+
+void UjinComponent::beep_long() {
+    beep_custom(0xFB);
+}
+
+void UjinComponent::beep_custom(uint8_t duration) {
     if (!state_.buzzer.enabled) return;
     
-    uint8_t duration = long_beep ? state_.buzzer.long_beep_duration : state_.buzzer.short_beep_duration;
     std::vector<uint8_t> message = {0xC8, 0x07, 0x0B, 0x02, 0x00, duration};
     uint8_t crc = calculate_crc(message);
     message.push_back(crc);
     send_command(message);
 }
 
-void UjinComponent::play_custom_beep(uint8_t duration) {
-    if (!state_.buzzer.enabled) return;
-    
-    std::vector<uint8_t> message = {0xC8, 0x07, 0x0B, 0x02, 0x00, duration};
-    uint8_t crc = calculate_crc(message);
-    message.push_back(crc);
-    send_command(message);
-}
-
-void UjinComponent::set_buzzer_enabled(bool enabled) {
-    state_.buzzer.enabled = enabled;
-    save_configuration();
-}
-
-void UjinComponent::set_buzzer_volume(uint8_t volume) {
-    if (volume > 100) volume = 100;
-    state_.buzzer.volume = volume;
-    save_configuration();
-}
-
-void UjinComponent::set_dimming_enabled(uint8_t channel, bool enabled) {
-    if (channel < 1 || channel > 2) return;
-    
+void UjinComponent::start_dimming(uint8_t channel) {
     std::vector<uint8_t> message = {0xC8, 0x07};
     
     if (channel == 1) {
-        message.push_back(enabled ? 0x34 : 0x35);
+        message.push_back(0x34);
         message.push_back(0x02);
         message.push_back(0x00);
     } else if (channel == 2) {
-        message.push_back(enabled ? 0x34 : 0x35);
+        message.push_back(0x34);
         message.push_back(0x02);
         message.push_back(0x01);
+    } else if (channel == 3) {
+        message.push_back(0x36);
+        message.push_back(0x02);
+        message.push_back(0x00);
+    } else {
+        return;
     }
     
     message.push_back(0x64);
@@ -139,111 +141,43 @@ void UjinComponent::set_dimming_enabled(uint8_t channel, bool enabled) {
     message.push_back(crc);
     
     send_command(message);
+}
+
+void UjinComponent::stop_dimming(uint8_t channel) {
+    std::vector<uint8_t> message = {0xC8, 0x07};
     
     if (channel == 1) {
-        state_.dimmer1_enabled = enabled;
+        message.push_back(0x35);
+        message.push_back(0x02);
+        message.push_back(0x00);
+    } else if (channel == 2) {
+        message.push_back(0x35);
+        message.push_back(0x02);
+        message.push_back(0x01);
+    } else if (channel == 3) {
+        message.push_back(0x37);
+        message.push_back(0x02);
+        message.push_back(0x00);
     } else {
-        state_.dimmer2_enabled = enabled;
+        return;
     }
     
-    if (settings_callback_) {
-        settings_callback_->trigger(state_);
-    }
-}
-
-bool UjinComponent::get_dimming_enabled(uint8_t channel) {
-    return (channel == 1) ? state_.dimmer1_enabled : state_.dimmer2_enabled;
-}
-
-void UjinComponent::set_operation_mode(uint8_t mode) {
-    if (mode > 3) mode = 0;
-    state_.settings.operation_mode = mode;
+    message.push_back(0x64);
+    uint8_t crc = calculate_crc(message);
+    message.push_back(crc);
     
-    std::vector<uint8_t> message = {0xC8, 0x07, 0x40, 0x02, 0x00, mode};
+    send_command(message);
+}
+
+void UjinComponent::request_config() {
+    std::vector<uint8_t> message = {0xC8, 0x07, 0x50, 0x02, 0x00, 0x00};
     uint8_t crc = calculate_crc(message);
     message.push_back(crc);
     send_command(message);
-    
-    save_configuration();
-    
-    if (settings_callback_) {
-        settings_callback_->trigger(state_);
-    }
+    ESP_LOGI(TAG, "Requested configuration from device");
 }
 
-void UjinComponent::set_dimming_mode(uint8_t mode) {
-    if (mode > 3) mode = 0;
-    state_.settings.dimming_mode = mode;
-    
-    switch(mode) {
-        case 0:
-            set_dimming_enabled(1, true);
-            set_dimming_enabled(2, true);
-            break;
-        case 1:
-            set_dimming_enabled(1, true);
-            set_dimming_enabled(2, false);
-            break;
-        case 2:
-            set_dimming_enabled(1, false);
-            set_dimming_enabled(2, true);
-            break;
-        case 3:
-            set_dimming_enabled(1, false);
-            set_dimming_enabled(2, false);
-            break;
-    }
-    
-    save_configuration();
-    
-    if (settings_callback_) {
-        settings_callback_->trigger(state_);
-    }
-}
-
-void UjinComponent::set_touch_sensitivity(uint8_t sensitivity) {
-    if (sensitivity > 2) sensitivity = 1;
-    state_.settings.touch_sensitivity = sensitivity;
-    
-    uint16_t threshold = (sensitivity == 0) ? 600 : (sensitivity == 1) ? 1000 : 1400;
-    std::vector<uint8_t> message = {0xC8, 0x07, 0x41, 0x02, 
-        static_cast<uint8_t>(threshold >> 8), 
-        static_cast<uint8_t>(threshold & 0xFF)};
-    uint8_t crc = calculate_crc(message);
-    message.push_back(crc);
-    send_command(message);
-    
-    save_configuration();
-    
-    if (settings_callback_) {
-        settings_callback_->trigger(state_);
-    }
-}
-
-void UjinComponent::set_timer(uint8_t channel, uint16_t seconds) {
-    if (channel == 1) {
-        state_.timer1 = seconds;
-    } else {
-        state_.timer2 = seconds;
-    }
-    save_configuration();
-}
-
-void UjinComponent::set_brightness_limits(uint8_t channel, uint16_t min_val, uint16_t max_val) {
-    if (min_val > max_val) std::swap(min_val, max_val);
-    if (max_val > 100) max_val = 100;
-    
-    if (channel == 1) {
-        state_.min_brightness1 = min_val;
-        state_.max_brightness1 = max_val;
-    } else {
-        state_.min_brightness2 = min_val;
-        state_.max_brightness2 = max_val;
-    }
-    save_configuration();
-}
-
-void UjinComponent::save_configuration() {
+void UjinComponent::save_full_config() {
     std::vector<uint8_t> message = {
         0xC8, 0x29, 0x66, 0x24,
         state_.power_phase_only ? 0xF0 : 0xF1,
@@ -255,37 +189,126 @@ void UjinComponent::save_configuration() {
         static_cast<uint8_t>(state_.max_brightness1 & 0xFF),
         static_cast<uint8_t>(state_.min_brightness1 >> 8),
         static_cast<uint8_t>(state_.min_brightness1 & 0xFF),
-        static_cast<uint8_t>(state_.max_brightness2 >> 8),
-        static_cast<uint8_t>(state_.max_brightness2 & 0xFF),
-        static_cast<uint8_t>(state_.min_brightness2 >> 8),
-        static_cast<uint8_t>(state_.min_brightness2 & 0xFF),
+        0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00,
         state_.dimmer1_enabled ? 0xC5 : 0xC4,
         0xFF, 0xCA, 0x08,
+        static_cast<uint8_t>(state_.min_brightness1 >> 8),
+        static_cast<uint8_t>(state_.min_brightness1 & 0xFF),
+        0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00,
+        state_.dimmer2_enabled ? 0xC5 : 0xC4,
+        0xFF, 0xF4, 0x01, 0x00, 0x00, 0x34, 0x12
     };
     
-    // Добавляем остальную конфигурацию
-    for (int i = 0; i < 16; i++) {
-        message.push_back(0x00);
-    }
-    
-    message.push_back(state_.settings.operation_mode);
-    message.push_back(state_.settings.dimming_mode);
-    message.push_back(state_.buzzer.enabled ? 0x01 : 0x00);
-    message.push_back(state_.buzzer.volume);
-    
     uint8_t crc = calculate_crc(message);
     message.push_back(crc);
     
     send_command(message);
-    ESP_LOGI(TAG, "Configuration saved");
+    ESP_LOGI(TAG, "Full configuration saved");
 }
 
-void UjinComponent::load_configuration() {
-    std::vector<uint8_t> message = {0xC8, 0x07, 0x50, 0x02, 0x00, 0x00};
+void UjinComponent::set_power_mode(bool phase_only) {
+    state_.power_phase_only = phase_only;
+    save_full_config();
+    update_binary_sensors();
+}
+
+void UjinComponent::set_timer(uint8_t channel, uint16_t seconds) {
+    if (seconds > 65535) seconds = 65535;
+    if (channel == 1) {
+        state_.timer1 = seconds;
+    } else if (channel == 2) {
+        state_.timer2 = seconds;
+    }
+    save_full_config();
+}
+
+void UjinComponent::set_brightness_limits(uint8_t channel, uint16_t min_val, uint16_t max_val) {
+    if (min_val > max_val) std::swap(min_val, max_val);
+    if (max_val > 10000) max_val = 10000;
+    
+    if (channel == 1) {
+        state_.min_brightness1 = min_val;
+        state_.max_brightness1 = max_val;
+    } else {
+        state_.min_brightness2 = min_val;
+        state_.max_brightness2 = max_val;
+    }
+    save_full_config();
+}
+
+void UjinComponent::set_dimming_enabled(uint8_t channel, bool enabled) {
+    if (channel == 1) {
+        state_.dimmer1_enabled = enabled;
+    } else if (channel == 2) {
+        state_.dimmer2_enabled = enabled;
+    } else if (channel == 3) {
+        state_.dimmer1_enabled = enabled;
+        state_.dimmer2_enabled = enabled;
+    }
+    save_full_config();
+    update_binary_sensors();
+}
+
+void UjinComponent::set_operation_mode(uint8_t mode) {
+    if (mode > 3) mode = 0;
+    state_.operation_mode = mode;
+    
+    std::vector<uint8_t> message = {0xC8, 0x07, 0x40, 0x02, 0x00, mode};
     uint8_t crc = calculate_crc(message);
     message.push_back(crc);
     send_command(message);
-    ESP_LOGI(TAG, "Requesting configuration");
+    
+    save_full_config();
+}
+
+void UjinComponent::set_dimming_mode(uint8_t mode) {
+    if (mode > 3) mode = 0;
+    state_.dimming_mode = mode;
+    
+    switch(mode) {
+        case 0:
+            state_.dimmer1_enabled = true;
+            state_.dimmer2_enabled = true;
+            break;
+        case 1:
+            state_.dimmer1_enabled = true;
+            state_.dimmer2_enabled = false;
+            break;
+        case 2:
+            state_.dimmer1_enabled = false;
+            state_.dimmer2_enabled = true;
+            break;
+        case 3:
+            state_.dimmer1_enabled = false;
+            state_.dimmer2_enabled = false;
+            break;
+    }
+    save_full_config();
+    update_binary_sensors();
+}
+
+void UjinComponent::set_touch_sensitivity(uint8_t sensitivity) {
+    if (sensitivity > 2) sensitivity = 1;
+    state_.touch_sensitivity = sensitivity;
+    
+    uint8_t threshold = (sensitivity == 0) ? 0x64 : (sensitivity == 1) ? 0xC8 : 0xFF;
+    std::vector<uint8_t> message = {0xC8, 0x07, 0x41, 0x02, 0x00, threshold};
+    uint8_t crc = calculate_crc(message);
+    message.push_back(crc);
+    send_command(message);
+    
+    save_full_config();
+}
+
+void UjinComponent::update_binary_sensors() {
+    if (ext_input1_sensor_) ext_input1_sensor_->publish_state(get_external_input_1());
+    if (ext_input2_sensor_) ext_input2_sensor_->publish_state(get_external_input_2());
+    if (any_ext_input_sensor_) any_ext_input_sensor_->publish_state(get_any_external_input());
+    if (dimmer1_enabled_sensor_) dimmer1_enabled_sensor_->publish_state(get_dimmer1_enabled());
+    if (dimmer2_enabled_sensor_) dimmer2_enabled_sensor_->publish_state(get_dimmer2_enabled());
+    if (channel1_on_sensor_) channel1_on_sensor_->publish_state(get_channel1_on());
+    if (channel2_on_sensor_) channel2_on_sensor_->publish_state(get_channel2_on());
+    if (power_phase_only_sensor_) power_phase_only_sensor_->publish_state(get_power_phase_only());
 }
 
 void UjinComponent::loop() {
@@ -296,21 +319,32 @@ void UjinComponent::loop() {
         if (uart_->read_byte(&byte)) {
             rx_buffer_.push_back(byte);
             
-            if (rx_buffer_.size() > 1 && rx_buffer_[0] != 0xC8) {
+            if (rx_buffer_.size() > 1 && rx_buffer_[0] != 0xC8 && rx_buffer_[0] != 0x02) {
                 rx_buffer_.clear();
                 continue;
             }
             
-            if (rx_buffer_.size() >= 7) {
+            if (rx_buffer_.size() >= 7 && rx_buffer_[0] == 0xC8) {
                 std::vector<uint8_t> data(rx_buffer_.begin(), rx_buffer_.end() - 1);
                 uint8_t received_crc = rx_buffer_.back();
                 uint8_t calc_crc = calculate_crc(data);
                 
                 if (calc_crc == received_crc) {
-                    parse_response(rx_buffer_);
+                    parse_short_response(rx_buffer_);
                     rx_buffer_.clear();
                 } else if (rx_buffer_.size() > MAX_RX_SIZE) {
-                    ESP_LOGW(TAG, "RX buffer overflow, clearing");
+                    rx_buffer_.clear();
+                }
+            }
+            else if (rx_buffer_.size() >= 10 && rx_buffer_[0] == 0x02) {
+                parse_debug_log(rx_buffer_);
+                rx_buffer_.clear();
+            }
+            else if (rx_buffer_.size() >= 41 && rx_buffer_[0] == 0xC8 && rx_buffer_[1] == 0x29) {
+                if (rx_buffer_.size() == 41) {
+                    parse_long_response(rx_buffer_);
+                    rx_buffer_.clear();
+                } else if (rx_buffer_.size() > 60) {
                     rx_buffer_.clear();
                 }
             }
@@ -318,74 +352,89 @@ void UjinComponent::loop() {
     }
 }
 
-void UjinComponent::parse_response(const std::vector<uint8_t> &data) {
+void UjinComponent::parse_short_response(const std::vector<uint8_t> &data) {
     if (data.size() < 7) return;
     
-    std::string hex_str;
-    for (uint8_t b : data) {
-        char hex[3];
-        snprintf(hex, sizeof(hex), "%02X", b);
-        hex_str += hex;
-        hex_str += " ";
-    }
-    ESP_LOGD(TAG, "Received: %s", hex_str.c_str());
+    ESP_LOGD(TAG, "Short response: %02X %02X %02X %02X %02X %02X %02X",
+             data[0], data[1], data[2], data[3], data[4], data[5], data[6]);
     
-    bool state_changed = false;
-    bool settings_changed = false;
+    uint8_t cmd = data[2];
+    uint8_t arg = data[5];
     
-    if (data.size() >= 42) {
-        if (data.size() > 17) {
-            bool dimmer1 = (data[17] == 0xC5);
-            if (state_.dimmer1_enabled != dimmer1) {
-                state_.dimmer1_enabled = dimmer1;
-                settings_changed = true;
-            }
-        }
-        
-        if (data.size() > 32) {
-            bool dimmer2 = (data[32] == 0xC5);
-            if (state_.dimmer2_enabled != dimmer2) {
-                state_.dimmer2_enabled = dimmer2;
-                settings_changed = true;
-            }
-        }
-        
-        if (data.size() > 3) {
-            bool phase_only = (data[3] == 0xF0);
-            if (state_.power_phase_only != phase_only) {
-                state_.power_phase_only = phase_only;
-                settings_changed = true;
-            }
-        }
-        
-        if (data.size() > 38) {
-            if (state_.external_input_state != data[38]) {
-                state_.external_input_state = data[38];
-                state_changed = true;
-            }
-        }
-        
-        if (settings_changed && settings_callback_) {
-            settings_callback_->trigger(state_);
-        }
-    }
-    
-    if (state_changed && state_callback_) {
+    if (cmd == 0x30) {
+        state_.channel1_brightness = arg;
+        state_.channel1_on = (arg > 0);
+        update_binary_sensors();
         state_callback_->trigger(state_);
+    } else if (cmd == 0x32) {
+        state_.channel2_brightness = arg;
+        state_.channel2_on = (arg > 0);
+        update_binary_sensors();
+        state_callback_->trigger(state_);
+    } else if (cmd == 0x33) {
+        state_.channel1_brightness = arg;
+        state_.channel2_brightness = arg;
+        state_.channel1_on = (arg > 0);
+        state_.channel2_on = (arg > 0);
+        update_binary_sensors();
+        state_callback_->trigger(state_);
+    }
+}
+
+void UjinComponent::parse_long_response(const std::vector<uint8_t> &data) {
+    ESP_LOGD(TAG, "Long response (%d bytes)", data.size());
+    
+    if (data.size() > 18) state_.dimmer1_enabled = (data[18] == 0xC5);
+    if (data.size() > 32) state_.dimmer2_enabled = (data[32] == 0xC5);
+    if (data.size() > 4) state_.power_phase_only = (data[4] == 0xF0);
+    
+    if (data.size() > 8) {
+        state_.timer1 = (data[5] << 8) | data[6];
+        state_.timer2 = (data[7] << 8) | data[8];
+    }
+    
+    if (data.size() > 12) {
+        state_.max_brightness1 = (data[9] << 8) | data[10];
+        state_.min_brightness1 = (data[11] << 8) | data[12];
+    }
+    if (data.size() > 16) {
+        state_.max_brightness2 = (data[13] << 8) | data[14];
+        state_.min_brightness2 = (data[15] << 8) | data[16];
+    }
+    
+    if (data.size() > 38 && data[38] >= 0x18 && data[38] <= 0x1E) {
+        state_.external_input = data[38];
+    }
+    
+    update_binary_sensors();
+    state_callback_->trigger(state_);
+}
+
+void UjinComponent::parse_debug_log(const std::vector<uint8_t> &data) {
+    if (data.size() < 10) return;
+    
+    ESP_LOGD(TAG, "Debug log from PIC16: %s", format_hex_pretty(data).c_str());
+    
+    if (data.size() > 4) {
+        uint8_t input_state = data[4];
+        if (input_state >= 0x18 && input_state <= 0x1E) {
+            state_.external_input = input_state;
+            update_binary_sensors();
+            state_callback_->trigger(state_);
+        }
     }
 }
 
 void UjinComponent::dump_config() {
     ESP_LOGCONFIG(TAG, "Ujin Dimmer Component:");
     ESP_LOGCONFIG(TAG, "  Channel 1: %s, Brightness: %d%%", 
-                  state_.channel1_on ? "ON" : "OFF", 
-                  (state_.channel1_brightness * 100) / 100);
+                  state_.channel1_on ? "ON" : "OFF", state_.channel1_brightness);
     ESP_LOGCONFIG(TAG, "  Channel 2: %s, Brightness: %d%%", 
-                  state_.channel2_on ? "ON" : "OFF", 
-                  (state_.channel2_brightness * 100) / 100);
-    ESP_LOGCONFIG(TAG, "  Buzzer: %s, Volume: %d%%", 
-                  state_.buzzer.enabled ? "enabled" : "disabled",
-                  state_.buzzer.volume);
+                  state_.channel2_on ? "ON" : "OFF", state_.channel2_brightness);
+    ESP_LOGCONFIG(TAG, "  Dimming: CH1=%s, CH2=%s", 
+                  state_.dimmer1_enabled ? "enabled" : "disabled",
+                  state_.dimmer2_enabled ? "enabled" : "disabled");
+    ESP_LOGCONFIG(TAG, "  External input: 0x%02X", state_.external_input);
 }
 
 } // namespace ujin
