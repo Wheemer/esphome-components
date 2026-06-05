@@ -3,17 +3,14 @@ import esphome.config_validation as cv
 from esphome.components import water_heater
 from esphome.const import CONF_ID
 
-from . import PolarisKettle, polaris_kettle_ns
+from . import polaris_kettle_ns, PolarisKettle, CONF_POLARIS_KETTLE_ID
 
 DEPENDENCIES = ["polaris_kettle"]
 
-PolarisWaterHeater = polaris_kettle_ns.class_(
-    "PolarisKettle", water_heater.WaterHeater
-)
-
-CONFIG_SCHEMA = water_heater._WATER_HEATER_SCHEMA.extend({
-    cv.GenerateID(CONF_ID): cv.use_id(PolarisKettle),
+CONFIG_SCHEMA = water_heater.WATER_HEATER_SCHEMA.extend({
+    cv.GenerateID(CONF_POLARIS_KETTLE_ID): cv.use_id(PolarisKettle),
 }).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
-    parent = await cg.get_variable(config[CONF_ID])
+    parent = await cg.get_variable(config[CONF_POLARIS_KETTLE_ID])
+    cg.add(parent.set_water_heater_parent(config))
