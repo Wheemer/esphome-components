@@ -16,7 +16,7 @@ CONFIG_SCHEMA = switch.SWITCH_SCHEMA.extend({
         "dimming_channel1": 1,
         "dimming_channel2": 2,
     }),
-}).extend(cv.COMPONENT_SCHEMA)
+})
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
