@@ -62,8 +62,7 @@ void UjinComponent::set_channel_brightness(uint8_t channel, uint8_t brightness_p
         state_.channel2_on = (brightness_percent > 0);
     }
     
-    update_binary_sensors();
-    state_callback_->trigger(state_);
+    publish_state();
 }
 
 void UjinComponent::set_both_brightness(uint8_t brightness_percent) {
@@ -80,8 +79,7 @@ void UjinComponent::set_both_brightness(uint8_t brightness_percent) {
     state_.channel1_on = (brightness_percent > 0);
     state_.channel2_on = (brightness_percent > 0);
     
-    update_binary_sensors();
-    state_callback_->trigger(state_);
+    publish_state();
 }
 
 void UjinComponent::set_channel_on(uint8_t channel) {
@@ -210,6 +208,7 @@ void UjinComponent::set_power_mode(bool phase_only) {
     state_.power_phase_only = phase_only;
     save_full_config();
     update_binary_sensors();
+    publish_state();
 }
 
 void UjinComponent::set_timer(uint8_t channel, uint16_t seconds) {
@@ -220,6 +219,7 @@ void UjinComponent::set_timer(uint8_t channel, uint16_t seconds) {
         state_.timer2 = seconds;
     }
     save_full_config();
+    publish_state();
 }
 
 void UjinComponent::set_brightness_limits(uint8_t channel, uint16_t min_val, uint16_t max_val) {
@@ -234,6 +234,7 @@ void UjinComponent::set_brightness_limits(uint8_t channel, uint16_t min_val, uin
         state_.max_brightness2 = max_val;
     }
     save_full_config();
+    publish_state();
 }
 
 void UjinComponent::set_dimming_enabled(uint8_t channel, bool enabled) {
@@ -247,6 +248,7 @@ void UjinComponent::set_dimming_enabled(uint8_t channel, bool enabled) {
     }
     save_full_config();
     update_binary_sensors();
+    publish_state();
 }
 
 void UjinComponent::set_operation_mode(uint8_t mode) {
@@ -259,6 +261,7 @@ void UjinComponent::set_operation_mode(uint8_t mode) {
     send_command(message);
     
     save_full_config();
+    publish_state();
 }
 
 void UjinComponent::set_dimming_mode(uint8_t mode) {
@@ -285,6 +288,7 @@ void UjinComponent::set_dimming_mode(uint8_t mode) {
     }
     save_full_config();
     update_binary_sensors();
+    publish_state();
 }
 
 void UjinComponent::set_touch_sensitivity(uint8_t sensitivity) {
@@ -298,6 +302,12 @@ void UjinComponent::set_touch_sensitivity(uint8_t sensitivity) {
     send_command(message);
     
     save_full_config();
+    publish_state();
+}
+
+void UjinComponent::publish_state() {
+    update_binary_sensors();
+    state_callback_.call(state_);
 }
 
 void UjinComponent::update_binary_sensors() {
@@ -364,20 +374,17 @@ void UjinComponent::parse_short_response(const std::vector<uint8_t> &data) {
     if (cmd == 0x30) {
         state_.channel1_brightness = arg;
         state_.channel1_on = (arg > 0);
-        update_binary_sensors();
-        state_callback_->trigger(state_);
+        publish_state();
     } else if (cmd == 0x32) {
         state_.channel2_brightness = arg;
         state_.channel2_on = (arg > 0);
-        update_binary_sensors();
-        state_callback_->trigger(state_);
+        publish_state();
     } else if (cmd == 0x33) {
         state_.channel1_brightness = arg;
         state_.channel2_brightness = arg;
         state_.channel1_on = (arg > 0);
         state_.channel2_on = (arg > 0);
-        update_binary_sensors();
-        state_callback_->trigger(state_);
+        publish_state();
     }
 }
 
@@ -406,8 +413,7 @@ void UjinComponent::parse_long_response(const std::vector<uint8_t> &data) {
         state_.external_input = data[38];
     }
     
-    update_binary_sensors();
-    state_callback_->trigger(state_);
+    publish_state();
 }
 
 void UjinComponent::parse_debug_log(const std::vector<uint8_t> &data) {
@@ -419,8 +425,7 @@ void UjinComponent::parse_debug_log(const std::vector<uint8_t> &data) {
         uint8_t input_state = data[4];
         if (input_state >= 0x18 && input_state <= 0x1E) {
             state_.external_input = input_state;
-            update_binary_sensors();
-            state_callback_->trigger(state_);
+            publish_state();
         }
     }
 }
