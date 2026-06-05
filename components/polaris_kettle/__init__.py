@@ -4,7 +4,7 @@ from esphome.components import uart
 from esphome.const import CONF_ID, CONF_UART_ID
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["water_heater", "sensor", "binary_sensor", "text_sensor", "button"]
+AUTO_LOAD = ["water_heater", "sensor", "text_sensor", "binary_sensor", "button"]
 
 CONF_POLARIS_KETTLE_ID = "polaris_kettle_id"
 
