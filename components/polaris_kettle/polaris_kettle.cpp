@@ -5,19 +5,6 @@ namespace polaris_kettle {
 
 void PolarisKettle::setup() {
   ESP_LOGI("polaris", "Polaris Kettle Component Started");
-  
-  traits_.set_supports_current_temperature(true);
-  traits_.set_supports_target_temperature(true);
-  traits_.set_supports_away_mode(false);
-  traits_.set_min_temperature(40.0);
-  traits_.set_max_temperature(100.0);
-  traits_.set_target_temperature_step(1.0);
-  traits_.set_supported_modes({
-      water_heater::WATER_HEATER_MODE_OFF,
-      water_heater::WATER_HEATER_MODE_ECO,
-      water_heater::WATER_HEATER_MODE_PERFORMANCE,
-      water_heater::WATER_HEATER_MODE_GAS,
-  });
 }
 
 void PolarisKettle::loop() {
@@ -41,41 +28,37 @@ void PolarisKettle::loop() {
 void PolarisKettle::control(const water_heater::WaterHeaterCall &call) {
   bool updated = false;
   
-  if (call.get_target_temperature().has_value()) {
-    float new_temp = *call.get_target_temperature();
-    target_temperature = new_temp;
-    send_target_temperature((uint8_t)new_temp);
-    if (target_sensor_) target_sensor_->publish(new_temp);
+  auto target_temp_opt = call.get_target_temperature();
+  if (target_temp_opt.has_value()) {
+    target_temperature_ = target_temp_opt.value();
+    send_target_temperature((uint8_t)target_temperature_);
     updated = true;
   }
   
-  if (call.get_mode().has_value()) {
-    mode = *call.get_mode();
-    send_mode(mode);
+  auto mode_opt = call.get_mode();
+  if (mode_opt.has_value()) {
+    send_mode(mode_opt.value());
     updated = true;
   }
   
   if (updated) {
-    publish_state();
+    this->publish_state();
+    update_sensors();
   }
 }
 
-void PolarisKettle::publish_state() {
-  current_temperature = current_temp_;
-  water_heater::WaterHeater::publish_state();
-}
-
 void PolarisKettle::update_sensors() {
-  if (current_sensor_) current_sensor_->publish(current_temp_);
-  if (target_sensor_) target_sensor_->publish(target_temperature);
-  if (mode_text_sensor_) mode_text_sensor_->publish(mode_text_);
-  if (no_kettle_sensor_) no_kettle_sensor_->publish(no_kettle_);
-  if (no_water_sensor_) no_water_sensor_->publish(no_water_);
+  if (current_sensor_) current_sensor_->publish_state(current_temp_);
+  if (target_sensor_) target_sensor_->publish_state(target_temperature_);
+  if (mode_text_sensor_) mode_text_sensor_->publish_state(mode_text_);
+  if (no_kettle_sensor_) no_kettle_sensor_->publish_state(no_kettle_);
+  if (no_water_sensor_) no_water_sensor_->publish_state(no_water_);
 }
 
-void PolarisKettle::register_button(PolarisButton *button, const std::string &type) {
-  button->set_parent(this);
-  button->set_type(type);
+void PolarisKettle::register_button(button::Button *button, const std::string &type) {
+  auto *btn = static_cast<PolarisButton*>(button);
+  btn->set_parent(this);
+  btn->set_type(type);
 }
 
 void PolarisButton::press_action() {
@@ -111,42 +94,36 @@ void PolarisKettle::process_frame() {
   uint8_t current_temp = frame[4];
   
   current_temp_ = (float)current_temp;
-  target_temperature = (float)target_temp;
+  target_temperature_ = (float)target_temp;
   
   if (status == 0xFF) {
     no_kettle_ = true;
     no_water_ = (frame[3] == 0x64 && frame[4] == 0x55);
     mode_text_ = no_water_ ? "Нет воды" : "Нет чайника";
-    mode = water_heater::WATER_HEATER_MODE_OFF;
   } else {
     no_kettle_ = false;
     no_water_ = false;
     
     if (mod == 0x00) {
-      mode = water_heater::WATER_HEATER_MODE_OFF;
       mode_text_ = "Выключен";
     } else if (mod == 0x01) {
       if (frame[4] == 0x3B || frame[4] == 0x7B) {
-        mode = water_heater::WATER_HEATER_MODE_PERFORMANCE;
         mode_text_ = "Кипячение";
       } else if (frame[4] == 0x63 || frame[4] == 0x3C || frame[4] == 0x3D) {
-        mode = water_heater::WATER_HEATER_MODE_ECO;
         mode_text_ = "Подогрев";
       } else {
-        mode = water_heater::WATER_HEATER_MODE_GAS;
         mode_text_ = "Чайная церемония";
       }
     } else {
-      mode = water_heater::WATER_HEATER_MODE_GAS;
       mode_text_ = "Чайная церемония";
     }
   }
   
-  publish_state();
+  this->publish_state();
   update_sensors();
   
   ESP_LOGD("polaris", "T: %.1f°C / %.1f°C | %s", 
-           current_temp_, target_temperature, mode_text_.c_str());
+           current_temp_, target_temperature_, mode_text_.c_str());
 }
 
 uint16_t PolarisKettle::calculate_checksum(uint8_t *data, int len) {
@@ -161,7 +138,7 @@ void PolarisKettle::send_command(uint8_t b1, uint8_t b2, uint8_t b3,
   uint16_t sum = calculate_checksum(cmd, 6);
   cmd[6] = (sum >> 8) & 0xFF;
   cmd[7] = sum & 0xFF;
-  write_array(cmd, 8);
+  this->write_array(cmd, 8);
 }
 
 void PolarisKettle::send_preset(uint8_t temp, uint8_t mode_byte) {
@@ -185,7 +162,7 @@ void PolarisKettle::send_mode(water_heater::WaterHeaterMode m) {
       send_preset(40, 0x63);
       break;
     default:
-      send_preset((uint8_t)target_temperature, 0x3C);
+      send_preset((uint8_t)target_temperature_, 0x3C);
       break;
   }
 }
