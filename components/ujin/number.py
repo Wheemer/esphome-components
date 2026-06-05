@@ -23,7 +23,7 @@ CONFIG_SCHEMA = number.NUMBER_SCHEMA.extend({
     cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
     cv.Optional(CONF_MAX_VALUE, default=100): cv.float_,
     cv.Optional(CONF_STEP, default=1): cv.float_,
-}).extend(cv.COMPONENT_SCHEMA)
+})
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
