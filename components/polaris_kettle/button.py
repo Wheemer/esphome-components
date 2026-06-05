@@ -23,7 +23,7 @@ BUTTON_TYPES = {
     "keep_warm": "keep_warm",
 }
 
-CONFIG_SCHEMA = button.button_schema().extend({
+CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
     cv.GenerateID(CONF_ID): cv.declare_id(PolarisButton),
     cv.GenerateID(CONF_POLARIS_KETTLE_ID): cv.use_id(PolarisKettle),
     cv.Required(CONF_BUTTON_TYPE): cv.enum(BUTTON_TYPES, lower=True),
@@ -37,4 +37,4 @@ async def to_code(config):
     cg.add(var.set_parent(parent))
     
     button_type = config[CONF_BUTTON_TYPE]
-    cg.add(parent.register_button(var, button_type))
+    cg.add(var.set_type(button_type))
