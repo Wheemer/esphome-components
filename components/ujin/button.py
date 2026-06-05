@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import button
-from esphome.const import CONF_ID, CONF_NAME
+from esphome.const import CONF_ID
 from . import ujin_ns, UjinComponent, CONF_UJIN_ID
 
 UjinButton = ujin_ns.class_("UjinButton", button.Button, cg.Component)
@@ -20,7 +20,7 @@ CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
         "load_config": 4,
     }),
     cv.Optional(CONF_DURATION, default=0xFA): cv.hex_int_range(min=0, max=255),
-}).extend(cv.COMPONENT_SCHEMA)
+})
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
