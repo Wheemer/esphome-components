@@ -3,25 +3,19 @@ import esphome.config_validation as cv
 from esphome.components import text_sensor
 from esphome.const import CONF_ID
 
-from . import polaris_kettle_ns, PolarisKettle, CONF_POLARIS_KETTLE_ID
+from . import generate
+from .const import CONF_POLARIS_ID
 
-DEPENDENCIES = ["polaris_kettle"]
+DEPENDENCIES = ["polaris"]
 
-PolarisTextSensor = polaris_kettle_ns.class_(
-    "PolarisTextSensor", text_sensor.TextSensor, cg.Component
-)
-
-CONFIG_SCHEMA = text_sensor.text_sensor_schema(
-    icon="mdi:kettle"
-).extend({
-    cv.GenerateID(CONF_ID): cv.declare_id(PolarisTextSensor),
-    cv.GenerateID(CONF_POLARIS_KETTLE_ID): cv.use_id(PolarisKettle),
+CONFIG_SCHEMA = text_sensor.text_sensor_schema().extend({
+    cv.GenerateID(CONF_ID): cv.declare_id(text_sensor.TextSensor),
+    cv.GenerateID(CONF_POLARIS_ID): cv.use_id(generate.PolarisKettle),
 }).extend(cv.COMPONENT_SCHEMA)
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await text_sensor.new_text_sensor(config)
     await cg.register_component(var, config)
     
-    parent = await cg.get_variable(config[CONF_POLARIS_KETTLE_ID])
-    cg.add(var.set_parent(parent))
-    cg.add(parent.register_mode_text_sensor(var))
+    parent = await cg.get_variable(config[CONF_POLARIS_ID])
+    cg.add(parent.set_mode_text_sensor(var))
