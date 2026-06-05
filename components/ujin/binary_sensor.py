@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import binary_sensor
-from esphome.const import CONF_ID, DEVICE_CLASS_CONNECTIVITY
+from esphome.const import CONF_ID
 from . import ujin_ns, UjinComponent, CONF_UJIN_ID
 
 UjinBinarySensor = ujin_ns.class_("UjinBinarySensor", binary_sensor.BinarySensor, cg.Component)
@@ -25,7 +25,7 @@ CONFIG_SCHEMA = binary_sensor.BINARY_SENSOR_SCHEMA.extend({
     cv.GenerateID(CONF_UJIN_ID): cv.use_id(UjinComponent),
     cv.Required(CONF_INPUT_TYPE): cv.enum(INPUT_TYPES),
     cv.Optional(CONF_INPUT_NUMBER, default=1): cv.int_range(min=1, max=2),
-}).extend(cv.COMPONENT_SCHEMA)
+})
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
