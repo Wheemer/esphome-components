@@ -45,8 +45,8 @@ void PolarisKettle::control(const water_heater::WaterHeaterCall &call) {
   
   auto target_opt = call.get_target_temperature();
   if (target_opt.has_value()) {
-    this->target_temperature_ = target_opt.value();
-    this->set_target_temperature(this->target_temperature_);
+    this->target_temp_ = target_opt.value();
+    this->send_preset((uint8_t)this->target_temp_, 0x3C);
     updated = true;
   }
   
@@ -54,7 +54,7 @@ void PolarisKettle::control(const water_heater::WaterHeaterCall &call) {
   if (mode_opt.has_value()) {
     switch (mode_opt.value()) {
       case water_heater::WATER_HEATER_MODE_OFF:
-        this->turn_off();
+        this->send_command(0x00, 0x00, 0x00, 0x00, 0x00);
         break;
       case water_heater::WATER_HEATER_MODE_PERFORMANCE:
         this->boil();
@@ -63,7 +63,7 @@ void PolarisKettle::control(const water_heater::WaterHeaterCall &call) {
         this->keep_warm();
         break;
       default:
-        this->set_target_temperature(this->target_temperature_);
+        this->send_preset((uint8_t)this->target_temp_, 0x3C);
         break;
     }
     updated = true;
@@ -74,10 +74,70 @@ void PolarisKettle::control(const water_heater::WaterHeaterCall &call) {
   }
 }
 
-void PolarisKettle::set_target_temperature(float temp) {
-  this->send_target_temperature_command((uint8_t)temp);
-  ESP_LOGI(TAG, "Set target temperature: %.1f°C", temp);
+void PolarisKettle::update_sensors() {
+  if (this->current_temperature_sensor_) {
+    this->current_temperature_sensor_->publish_state(this->current_temp_);
+  }
+  if (this->target_temperature_sensor_) {
+    this->target_temperature_sensor_->publish_state(this->target_temp_);
+  }
+  if (this->mode_text_sensor_) {
+    this->mode_text_sensor_->publish_state(this->mode_text_);
+  }
+  if (this->no_kettle_sensor_) {
+    this->no_kettle_sensor_->publish_state(this->no_kettle_);
+  }
+  if (this->no_water_sensor_) {
+    this->no_water_sensor_->publish_state(this->no_water_);
+  }
 }
+
+void PolarisKettle::black_tea() {
+  this->send_preset(95, 0x3D);
+  ESP_LOGI(TAG, "Black tea mode: 95°C");
+}
+
+void PolarisKettle::mix_tea() {
+  this->send_preset(40, 0x3B);
+  ESP_LOGI(TAG, "Mix tea mode: 40°C");
+}
+
+void PolarisKettle::white_tea() {
+  this->send_preset(65, 0x3C);
+  ESP_LOGI(TAG, "White tea mode: 65°C");
+}
+
+void PolarisKettle::green_tea() {
+  this->send_preset(80, 0x7C);
+  ESP_LOGI(TAG, "Green tea mode: 80°C");
+}
+
+void PolarisKettle::oolong_tea() {
+  this->send_preset(90, 0x7D);
+  ESP_LOGI(TAG, "Oolong tea mode: 90°C");
+}
+
+void PolarisKettle::bag_tea() {
+  this->send_preset(100, 0x7E);
+  ESP_LOGI(TAG, "Bag tea mode: 100°C");
+}
+
+void PolarisKettle::boil() {
+  this->send_preset(100, 0x3B);
+  ESP_LOGI(TAG, "Boil mode");
+}
+
+void PolarisKettle::keep_warm() {
+  this->send_preset(40, 0x63);
+  ESP_LOGI(TAG, "Keep warm mode");
+}
+
+void PolarisKettle::set_black_tea_button(button::Button *button) {
+  this->black_tea_button_ = button;
+  // Кнопка будет вызывать black_tea() при нажатии через отдельный класс
+}
+
+// Аналогичные методы для других кнопок...
 
 void PolarisKettle::dump_config() {
   ESP_LOGCONFIG(TAG, "Polaris Kettle:");
@@ -95,17 +155,17 @@ void PolarisKettle::process_frame() {
   uint16_t recv_sum = (frame[6] << 8) | frame[7];
   
   if (calc_sum != recv_sum) {
-    ESP_LOGW(TAG, "Checksum error: calc=0x%04X recv=0x%04X", calc_sum, recv_sum);
+    ESP_LOGW(TAG, "Checksum error");
     return;
   }
   
   uint8_t status = frame[1];
   uint8_t mode = frame[2];
-  uint8_t target_temp = frame[3];
-  uint8_t current_temp = frame[4];
+  uint8_t target = frame[3];
+  uint8_t current = frame[4];
   
-  this->current_temp_ = (float)current_temp;
-  this->target_temperature_ = (float)target_temp;
+  this->current_temp_ = (float)current;
+  this->target_temp_ = (float)target;
   
   if (status == 0xFF) {
     this->no_kettle_ = true;
@@ -137,10 +197,10 @@ void PolarisKettle::process_frame() {
   }
   
   this->publish_state();
+  this->update_sensors();
   
-  ESP_LOGD(TAG, "Current: %.1f°C, Target: %.1f°C, Mode: %s, Error: %s",
-           this->current_temp_, this->target_temperature_, this->mode_text_.c_str(),
-           this->no_kettle_ ? (this->no_water_ ? "NO_WATER" : "NO_KETTLE") : "OK");
+  ESP_LOGD(TAG, "Current: %.1f°C, Target: %.1f°C, Mode: %s",
+           this->current_temp_, this->target_temp_, this->mode_text_.c_str());
 }
 
 uint16_t PolarisKettle::calculate_checksum(uint8_t *data, int len) {
@@ -156,18 +216,10 @@ void PolarisKettle::send_command(uint8_t b1, uint8_t b2, uint8_t b3,
   cmd[6] = (sum >> 8) & 0xFF;
   cmd[7] = sum & 0xFF;
   this->write_array(cmd, 8);
-  
-  ESP_LOGD(TAG, "Send: %02X %02X %02X %02X %02X %02X %02X %02X",
-           cmd[0], cmd[1], cmd[2], cmd[3], cmd[4], cmd[5], cmd[6], cmd[7]);
 }
 
 void PolarisKettle::send_preset(uint8_t temp, uint8_t mode_byte) {
   this->send_command(0x00, 0x01, temp, mode_byte, 0x00);
-  ESP_LOGI(TAG, "Send preset: %d°C, mode=0x%02X", temp, mode_byte);
-}
-
-void PolarisKettle::send_target_temperature_command(uint8_t temp) {
-  this->send_command(0x00, 0x01, temp, 0x3C, 0x00);
 }
 
 }  // namespace polaris
