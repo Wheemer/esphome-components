@@ -1,29 +1,22 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import number
-from esphome.const import CONF_ID, CONF_MIN_VALUE, CONF_MAX_VALUE, CONF_STEP
+from esphome.components import select
+from esphome.const import CONF_ID
 from . import ujin_ns, UjinComponent, CONF_UJIN_ID
 
-UjinNumber = ujin_ns.class_("UjinNumber", number.Number, cg.Component)
+UjinSelect = ujin_ns.class_("UjinSelect", select.Select, cg.Component)
 
-CONF_SETTING = "setting"
+CONF_SELECT_TYPE = "select_type"
 
-CONFIG_SCHEMA = number.NUMBER_SCHEMA.extend({
-    cv.GenerateID(): cv.declare_id(UjinNumber),
+CONFIG_SCHEMA = select.SELECT_SCHEMA.extend({
+    cv.GenerateID(): cv.declare_id(UjinSelect),
     cv.GenerateID(CONF_UJIN_ID): cv.use_id(UjinComponent),
-    cv.Required(CONF_SETTING): cv.enum({
-        "buzzer_volume": 0,
-        "timer1": 1,
-        "timer2": 2,
-        "min_brightness1": 3,
-        "max_brightness1": 4,
-        "min_brightness2": 5,
-        "max_brightness2": 6,
+    cv.Required(CONF_SELECT_TYPE): cv.enum({
+        "operation_mode": 0,
+        "dimming_mode": 1,
+        "touch_sensitivity": 2,
     }),
-    cv.Optional(CONF_MIN_VALUE, default=0): cv.float_,
-    cv.Optional(CONF_MAX_VALUE, default=100): cv.float_,
-    cv.Optional(CONF_STEP, default=1): cv.float_,
-}).extend(cv.COMPONENT_SCHEMA)
+})
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -31,6 +24,6 @@ async def to_code(config):
     
     ujin = await cg.get_variable(config[CONF_UJIN_ID])
     cg.add(var.set_ujin_parent(ujin))
-    cg.add(var.set_setting(config[CONF_SETTING]))
+    cg.add(var.set_select_type(config[CONF_SELECT_TYPE]))
     
-    await number.register_number(var, config)
+    await select.register_select(var, config)
