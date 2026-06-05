@@ -3,10 +3,10 @@ import esphome.config_validation as cv
 from esphome.components import uart
 from esphome.const import CONF_ID, CONF_UART_ID
 
-from . import const, generate, schema, validate
+from . import const, generate, validate
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["water_heater"]
+AUTO_LOAD = ["water_heater", "sensor", "text_sensor", "binary_sensor", "button"]
 CODEOWNERS = ["@yourname"]
 MULTI_CONF = True
 
