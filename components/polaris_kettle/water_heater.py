@@ -11,7 +11,7 @@ PolarisWaterHeater = polaris_kettle_ns.class_(
     "PolarisKettle", water_heater.WaterHeater
 )
 
-CONFIG_SCHEMA = water_heater.WATER_HEATER_SCHEMA.extend({
+CONFIG_SCHEMA = water_heater._WATER_HEATER_SCHEMA'.extend({
     cv.GenerateID(CONF_ID): cv.use_id(PolarisKettle),
 }).extend(cv.COMPONENT_SCHEMA)
 
