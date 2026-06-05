@@ -6,8 +6,6 @@ from esphome.const import CONF_ID, CONF_UART_ID
 DEPENDENCIES = ["uart"]
 AUTO_LOAD = ["water_heater", "sensor", "text_sensor", "binary_sensor", "button"]
 
-CONF_POLARIS_KETTLE_ID = "polaris_kettle_id"
-
 polaris_kettle_ns = cg.esphome_ns.namespace("polaris_kettle")
 PolarisKettle = polaris_kettle_ns.class_(
     "PolarisKettle", cg.Component, uart.UARTDevice
