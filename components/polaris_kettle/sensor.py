@@ -17,11 +17,8 @@ SENSOR_TYPES = {
     "target": "target",
 }
 
-CONFIG_SCHEMA = sensor.sensor_schema(
-    unit_of_measurement="°C",
-    accuracy_decimals=1,
-    icon="mdi:thermometer"
-).extend({
+# Используем _SENSOR_SCHEMA
+CONFIG_SCHEMA = sensor._SENSOR_SCHEMA.extend({
     cv.GenerateID(CONF_ID): cv.declare_id(PolarisSensor),
     cv.GenerateID(CONF_POLARIS_KETTLE_ID): cv.use_id(PolarisKettle),
     cv.Required(CONF_SENSOR_TYPE): cv.enum(SENSOR_TYPES, lower=True),
