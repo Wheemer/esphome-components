@@ -18,7 +18,7 @@ KeepWarmButton = polaris_kettle_ns.class_("KeepWarmButton", button.Button, cg.Co
 
 CONF_POLARIS_KETTLE_ID = "polaris_kettle_id"
 
-BUTTON_SCHEMA = button.BUTTON_SCHEMA.extend({
+BUTTON_SCHEMA = button._BUTTON_SCHEMA.extend({
     cv.GenerateID(CONF_POLARIS_KETTLE_ID): cv.use_id(PolarisKettle),
 }).extend(cv.COMPONENT_SCHEMA)
 
