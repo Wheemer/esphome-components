@@ -23,7 +23,7 @@ BUTTON_TYPES = {
     "keep_warm": "keep_warm",
 }
 
-CONFIG_SCHEMA = button.BUTTON_SCHEMA.extend({
+CONFIG_SCHEMA = button._BUTTON_SCHEMA.extend({
     cv.GenerateID(CONF_ID): cv.declare_id(PolarisButton),
     cv.GenerateID(CONF_POLARIS_KETTLE_ID): cv.use_id(PolarisKettle),
     cv.Required(CONF_BUTTON_TYPE): cv.enum(BUTTON_TYPES, lower=True),
