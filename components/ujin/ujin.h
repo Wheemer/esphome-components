@@ -57,6 +57,11 @@ public:
     
     void set_uart_parent(uart::UARTComponent *uart) { uart_ = uart; }
     
+    // Callback регистрация для автоматизаций
+    template<typename F> void add_on_state_callback(F &&callback) {
+        state_callback_.add(std::forward<F>(callback));
+    }
+    
     // Короткие команды (7 байт)
     void set_channel_brightness(uint8_t channel, uint8_t brightness_percent);
     void set_channel_on(uint8_t channel);
@@ -107,13 +112,12 @@ public:
     void register_channel2_on_sensor(binary_sensor::BinarySensor *sensor) { channel2_on_sensor_ = sensor; }
     void register_power_phase_only_sensor(binary_sensor::BinarySensor *sensor) { power_phase_only_sensor_ = sensor; }
     
-    // Callback
-    Trigger<const DeviceState &> *get_state_callback() const { return state_callback_; }
-    
 protected:
     uart::UARTComponent *uart_{nullptr};
     DeviceState state_;
-    Trigger<const DeviceState &> *state_callback_{new Trigger<const DeviceState &>()};
+    
+    // CallbackManager для автоматизаций [citation:5]
+    CallbackManager<void(const DeviceState &)> state_callback_{};
     
     // Сенсоры
     binary_sensor::BinarySensor *ext_input1_sensor_{nullptr};
@@ -131,10 +135,13 @@ protected:
     void parse_long_response(const std::vector<uint8_t> &data);
     void parse_debug_log(const std::vector<uint8_t> &data);
     void update_binary_sensors();
+    void publish_state();
     
     std::vector<uint8_t> rx_buffer_;
     static constexpr size_t MAX_RX_SIZE = 128;
 };
 
+} // namespace ujin
+} // namespace esphome
 } // namespace ujin
 } // namespace esphome
