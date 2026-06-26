@@ -1,50 +1,67 @@
-# ESPHome component
+# 📦 ESPHome Components & Projects
 
 [![License][license-shield]][license]
 [![ESPHome release][esphome-release-shield]][esphome-release]
 
 [license-shield]: https://img.shields.io/static/v1?label=License&message=MIT&color=orange&logo=license
 [license]: https://opensource.org/licenses/MIT
-[esphome-release-shield]: https://img.shields.io/static/v1?label=ESPHome&message=2025.3&color=green&logo=esphome
-[esphome-release]: https://GitHub.com/esphome/esphome/releases/
+[esphome-release-shield]: https://img.shields.io/github/v/release/esphome/esphome?label=ESPHome&color=green&logo=esphome
+[esphome-release]: https://esphome.io/
 
-## PM1006k
-[ESPHome external component PM1006k](/components/pm1006k)
+Коллекция **внешних компонентов** и **готовых проектов** для [ESPHome](https://esphome.io/).
 
-##  MQ
-[ESPHome external component sensor MQ gaz sensor](/components/mq)
+---
 
-##  HTS221
-[ESPHome external component HTS221](/components/hts221)
+## 🧩 Внешние компоненты (External Components)
 
-## cap1293
-[ESPHome external component cap1293](/components/cap1293)
+| Компонент | Описание | Ссылка |
+|-----------|----------|--------|
+| **PM1006k** | Датчик качества воздуха (PM1.0, PM2.5, PM10) | [→ Перейти](/components/pm1006k) |
+| **MQ** | Датчики газа (MQ-2, MQ-5, MQ-7 и др.) | [→ Перейти](/components/mq) |
+| **HTS221** | Датчик температуры и влажности | [→ Перейти](/components/hts221) |
+| **CAP1293** | Ёмкостной сенсорный контроллер (3 канала) | [→ Перейти](/components/cap1293) |
+| **AW9310X** | Сенсорный контроллер для жестов | [→ Перейти](components/aw9310x) |
+| **MCP453X** | Цифровой потенциометр | [→ Перейти](/components/mcp453x) |
+| **CG-Anem** | Анемометр для Climateguard | [→ Перейти](/components/cg_anem) |
+| **LilyGo T-Battery** | Мониторинг батареи для TTGO T-Display ESP32 | [→ Перейти](/components/lilygo_t_battery) |
+| **RadSens** | Дозиметр (ионизирующее излучение) | [→ Перейти](/components/RadSens) |
 
-## aw9310x
-[ESPHome external component aw9310x](components/aw9310x)
+---
 
-## mcp453x
-[ESPHome external component mcp453x](/components/mcp453x)
+## 🚀 Готовые проекты
 
-## CG-Anem
-[ESPHome external component sensor for Climateguard CG-Anem](/components/cg_anem)
+### 🌬️ IKEA Vindriktning — монитор качества воздуха
 
-## Ttgo t-display esp32 battery
- [ESPHome external component Ttgo t-display esp32 battery](/components/lilygo_t_battery)
+Модернизация датчика качества воздуха IKEA Vindriktning с полной заменой электроники.
+
+- 📄 **Репозиторий:** [ananyevgv/esphome-vindriktning-ikea](https://github.com/ananyevgv/esphome-vindriktning-ikea/)
+- 📝 **Конфигурация v3:** [`ikea-circle-new.yaml`](https://github.com/ananyevgv/esphome-vindriktning-ikea/blob/main/ikea-circle-new.yaml)
+
+**Возможности:**
+- 🌡️ BME680 (температура, влажность, давление, VOC)
+- 🌫️ PM1006k (PM1.0, PM2.5, PM10)
+- 🌀 Управление вентилятором
+- 🎨 Цветовой дисплей ST7735
+- 🌅 Индикация солнца и прогноз погоды
+
+---
+
+### ☢️ Дозиметр RadSens
+
+Портативный дозиметр на базе ESPHome и датчика RadSens.
+
+**Основано на:** [med-lasers/Dosimeter_RadSens_NarodMon](https://github.com/med-lasers/Dosimeter_RadSens_NarodMon)
+
+- 📄 **Компонент:** [RadSens](/components/RadSens)
+- 📝 **Конфигурация:** [`dosimeter.yaml`](/components/RadSens/dosimeter.yaml)
+
+**Возможности:**
+- 📊 Измерение мощности дозы (мкЗв/ч)
+- 🔢 Счётчик импульсов
+- 📈 Отображение на дисплее
+
+---
 
 
-# Проекты:
-
-Ikea vindriktning
-==========
-[Ikea vindriktning](https://github.com/ananyevgv/esphome-vindriktning-ikea/)
-[yaml Ikea vindriktning v3](https://github.com/ananyevgv/esphome-vindriktning-ikea/blob/main/ikea-circle-new.yaml)
-
-Dosimeter  ESPHome
-==========
-По мотивам 
-https://github.com/med-lasers/Dosimeter_RadSens_NarodMon
-
-[RadSens](https://github.com/ananyevgv/esphome-components/tree/main/components/RadSens)
-
-[Dosimeter yaml](https://github.com/ananyevgv/esphome-components/blob/main/components/RadSens/dosimeter.yaml)
+⭐ Поддержать проект
+Если проект оказался полезным — поставьте ⭐ на GitHub!
